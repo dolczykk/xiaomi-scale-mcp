@@ -1,0 +1,1 @@
+# Xiaomi Scale MCP
