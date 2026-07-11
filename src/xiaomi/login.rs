@@ -55,10 +55,10 @@ impl Client {
         let pending = self
             .auth
             .as_mut()
-            .ok_or(XiaomiError::InvalidLoginStep("captcha not requested"))?;
+            .ok_or(XiaomiError::invalid_login_step("captcha not requested"))?;
 
         if pending.ick.as_deref().unwrap_or_default().is_empty() {
-            return Err(XiaomiError::InvalidLoginStep("captcha not requested"));
+            return Err(XiaomiError::invalid_login_step("captcha not requested"));
         }
 
         pending.captcha_code = Some(captcha.to_string());
@@ -75,18 +75,22 @@ impl Client {
     }
 
     pub async fn login_with_verify(&mut self, ticket: &str) -> Result<()> {
-        let pending = self
-            .auth
-            .as_ref()
-            .ok_or(XiaomiError::InvalidLoginStep("verification not requested"))?;
+        let pending = self.auth.as_ref().ok_or(XiaomiError::invalid_login_step(
+            "verification not requested",
+        ))?;
         let flag = pending
             .flag
             .as_ref()
-            .ok_or(XiaomiError::InvalidLoginStep("verification not requested"))?;
-        let identity_session = pending
-            .identity_session
-            .as_ref()
-            .ok_or(XiaomiError::InvalidLoginStep("verification not requested"))?;
+            .ok_or(XiaomiError::invalid_login_step(
+                "verification not requested",
+            ))?;
+        let identity_session =
+            pending
+                .identity_session
+                .as_ref()
+                .ok_or(XiaomiError::invalid_login_step(
+                    "verification not requested",
+                ))?;
 
         let form = vec![
             ("_flag".to_string(), flag.clone()),
@@ -243,7 +247,7 @@ impl Client {
         let response: IdentityListResponse = serde_json::from_slice(&body)?;
 
         let Some(auth) = &mut self.auth else {
-            return Err(XiaomiError::InvalidLoginStep("login state missing"));
+            return Err(XiaomiError::invalid_login_step("login state missing"));
         };
 
         auth.flag = Some(response.flag.to_string());
@@ -253,19 +257,22 @@ impl Client {
     }
 
     async fn send_ticket(&mut self) -> Result<()> {
-        let pending = self
-            .auth
-            .as_ref()
-            .ok_or(XiaomiError::InvalidLoginStep("verification not requested"))?;
+        let pending = self.auth.as_ref().ok_or(XiaomiError::invalid_login_step(
+            "verification not requested",
+        ))?;
         let flag = pending
             .flag
             .as_ref()
-            .ok_or(XiaomiError::InvalidLoginStep("verification not requested"))?
+            .ok_or(XiaomiError::invalid_login_step(
+                "verification not requested",
+            ))?
             .clone();
         let identity_session = pending
             .identity_session
             .as_ref()
-            .ok_or(XiaomiError::InvalidLoginStep("verification not requested"))?
+            .ok_or(XiaomiError::invalid_login_step(
+                "verification not requested",
+            ))?
             .clone();
 
         let name = self.verify_name()?.to_string();
@@ -282,10 +289,9 @@ impl Client {
         let body = read_login_response(response).await?;
         let verify: VerifyMethodResponse = serde_json::from_slice(&body)?;
 
-        let pending = self
-            .auth
-            .as_ref()
-            .ok_or(XiaomiError::InvalidLoginStep("verification not requested"))?;
+        let pending = self.auth.as_ref().ok_or(XiaomiError::invalid_login_step(
+            "verification not requested",
+        ))?;
 
         let captcha_code = pending.captcha_code.clone().unwrap_or_default();
         let mut cookies = format!("identity_session={identity_session}");
@@ -334,12 +340,14 @@ impl Client {
             .auth
             .as_ref()
             .and_then(|auth| auth.flag.as_deref())
-            .ok_or(XiaomiError::InvalidLoginStep("verification not requested"))?;
+            .ok_or(XiaomiError::invalid_login_step(
+                "verification not requested",
+            ))?;
 
         match flag {
             "4" => Ok("Phone"),
             "8" => Ok("Email"),
-            _ => Err(XiaomiError::InvalidLoginStep(
+            _ => Err(XiaomiError::invalid_login_step(
                 "unsupported verification type",
             )),
         }
@@ -470,9 +478,8 @@ mod tests {
 
         assert!(matches!(
             client.verify_name(),
-            Err(XiaomiError::InvalidLoginStep(
-                "unsupported verification type"
-            ))
+            Err(XiaomiError::InvalidLoginStep(message))
+                if message == "unsupported verification type"
         ));
     }
 }

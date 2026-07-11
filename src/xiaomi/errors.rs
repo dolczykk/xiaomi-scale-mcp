@@ -27,7 +27,7 @@ pub enum XiaomiError {
     InvalidToken,
 
     #[error("wrong login step: {0}")]
-    InvalidLoginStep(&'static str),
+    InvalidLoginStep(String),
 
     #[error("login challenge: {0:?}")]
     LoginChallenge(LoginChallenge),
@@ -40,4 +40,10 @@ pub enum XiaomiError {
 
     #[error("http status: {0}")]
     HttpStatus(String),
+}
+
+impl XiaomiError {
+    pub(crate) fn invalid_login_step(message: impl Into<String>) -> Self {
+        Self::InvalidLoginStep(message.into())
+    }
 }
