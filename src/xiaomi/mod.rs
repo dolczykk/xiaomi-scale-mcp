@@ -92,7 +92,9 @@ impl Client {
 
         let response = request.send().await?;
         if !response.status().is_success() {
-            return Err(XiaomiError::HttpStatus(response.status().to_string()));
+            let error = XiaomiError::HttpStatus(response.status().to_string());
+
+            return Err(error);
         }
 
         let body = response.bytes().await?;
@@ -101,7 +103,9 @@ impl Client {
         let response: ApiResponse = serde_json::from_slice(&plaintext)?;
 
         if response.code != 0 {
-            return Err(XiaomiError::Api(response.message));
+            let error = XiaomiError::Api(response.message);
+
+            return Err(error);
         }
 
         Ok(response.result.get().as_bytes().to_vec())

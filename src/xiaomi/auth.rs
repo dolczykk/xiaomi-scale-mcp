@@ -112,12 +112,18 @@ pub(crate) struct LoginV2Envelope {
 pub fn parse_login_v2_response(body: &[u8]) -> Result<LoginV2Response> {
     match parse_login_v2_outcome(body)? {
         LoginV2Outcome::Success(response) => Ok(response),
-        LoginV2Outcome::Captcha(captcha_url) => Err(XiaomiError::Auth(format!(
-            "captcha required: {captcha_url}"
-        ))),
-        LoginV2Outcome::Notification(notification_url) => Err(XiaomiError::Auth(format!(
-            "notification required: {notification_url}"
-        ))),
+        LoginV2Outcome::Captcha(captcha_url) => {
+            let message = format!("captcha required: {captcha_url}");
+            let error = XiaomiError::Auth(message);
+
+            Err(error)
+        }
+        LoginV2Outcome::Notification(notification_url) => {
+            let message = format!("notification required: {notification_url}");
+            let error = XiaomiError::Auth(message);
+
+            Err(error)
+        }
     }
 }
 
@@ -129,7 +135,9 @@ pub(crate) fn parse_login_v2_outcome(body: &[u8]) -> Result<LoginV2Outcome> {
         .clone()
         .filter(|value| !value.is_empty())
     {
-        return Ok(LoginV2Outcome::Captcha(captcha_url));
+        let outcome = LoginV2Outcome::Captcha(captcha_url);
+
+        return Ok(outcome);
     }
 
     if let Some(notification_url) = response
@@ -137,7 +145,9 @@ pub(crate) fn parse_login_v2_outcome(body: &[u8]) -> Result<LoginV2Outcome> {
         .clone()
         .filter(|value| !value.is_empty())
     {
-        return Ok(LoginV2Outcome::Notification(notification_url));
+        let outcome = LoginV2Outcome::Notification(notification_url);
+
+        return Ok(outcome);
     }
 
     if let (Some(user_id), Some(ssecurity), Some(pass_token), Some(location)) = (
@@ -147,15 +157,19 @@ pub(crate) fn parse_login_v2_outcome(body: &[u8]) -> Result<LoginV2Outcome> {
         response.location.clone(),
     ) && !location.is_empty()
     {
-        return Ok(LoginV2Outcome::Success(LoginV2Response {
+        let outcome = LoginV2Response {
             user_id,
             ssecurity,
             pass_token,
             location,
-        }));
+        };
+
+        return Ok(LoginV2Outcome::Success(outcome));
     }
 
-    Err(XiaomiError::Auth(response.error_message()))
+    let error = XiaomiError::Auth(response.error_message());
+
+    Err(error)
 }
 
 impl LoginV2Envelope {

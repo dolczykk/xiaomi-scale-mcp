@@ -95,7 +95,9 @@ impl App {
                 }
             }
 
-            return Err(XiaomiError::LoginChallenge(challenge).into());
+            let error = XiaomiError::LoginChallenge(challenge);
+
+            return Err(error.into());
         }
     }
 
@@ -110,7 +112,9 @@ impl App {
 
         let ticket = ticket.trim().to_string();
         if ticket.is_empty() {
-            bail!(XiaomiError::LoginChallenge(challenge.clone()));
+            let error = XiaomiError::LoginChallenge(challenge.clone());
+
+            bail!(error);
         }
 
         Ok(ticket)

@@ -58,7 +58,9 @@ impl Client {
             .ok_or(XiaomiError::invalid_login_step("captcha not requested"))?;
 
         if pending.ick.as_deref().unwrap_or_default().is_empty() {
-            return Err(XiaomiError::invalid_login_step("captcha not requested"));
+            let error = XiaomiError::invalid_login_step("captcha not requested");
+
+            return Err(error);
         }
 
         pending.captcha_code = Some(captcha.to_string());
@@ -116,7 +118,9 @@ impl Client {
         let response: VerifyResponse = serde_json::from_slice(&body)?;
 
         if response.location.is_empty() {
-            return Err(XiaomiError::Auth(raw_login_error(&body)));
+            let error = XiaomiError::Auth(raw_login_error(&body));
+
+            return Err(error);
         }
 
         self.finish_auth(&response.location).await
@@ -208,15 +212,15 @@ impl Client {
             }
             LoginV2Outcome::Captcha(captcha_url) => {
                 self.get_captcha(&captcha_url).await?;
-                Err(XiaomiError::Auth(
-                    "captcha challenge did not return".to_string(),
-                ))
+                let error = XiaomiError::Auth("captcha challenge did not return".to_string());
+
+                Err(error)
             }
             LoginV2Outcome::Notification(notification_url) => {
                 self.auth_start(&notification_url).await?;
-                Err(XiaomiError::Auth(
-                    "verification challenge did not return".to_string(),
-                ))
+                let error = XiaomiError::Auth("verification challenge did not return".to_string());
+
+                Err(error)
             }
         }
     }
@@ -232,9 +236,10 @@ impl Client {
             auth.ick = ick;
         }
 
-        Err(XiaomiError::LoginChallenge(LoginChallenge::captcha(
-            captcha,
-        )))
+        let challenge = LoginChallenge::captcha(captcha);
+        let error = XiaomiError::LoginChallenge(challenge);
+
+        Err(error)
     }
 
     async fn auth_start(&mut self, notification_url: &str) -> Result<()> {
@@ -247,7 +252,9 @@ impl Client {
         let response: IdentityListResponse = serde_json::from_slice(&body)?;
 
         let Some(auth) = &mut self.auth else {
-            return Err(XiaomiError::invalid_login_step("login state missing"));
+            let error = XiaomiError::invalid_login_step("login state missing");
+
+            return Err(error);
         };
 
         auth.flag = Some(response.flag.to_string());
@@ -326,13 +333,15 @@ impl Client {
         }
 
         if ticket.code != 0 {
-            return Err(XiaomiError::Auth(raw_login_error(&body)));
+            let error = XiaomiError::Auth(raw_login_error(&body));
+
+            return Err(error);
         }
 
-        Err(XiaomiError::LoginChallenge(LoginChallenge::verification(
-            verify.masked_phone,
-            verify.masked_email,
-        )))
+        let challenge = LoginChallenge::verification(verify.masked_phone, verify.masked_email);
+        let error = XiaomiError::LoginChallenge(challenge);
+
+        Err(error)
     }
 
     fn verify_name(&self) -> Result<&'static str> {
@@ -347,15 +356,19 @@ impl Client {
         match flag {
             "4" => Ok("Phone"),
             "8" => Ok("Email"),
-            _ => Err(XiaomiError::invalid_login_step(
-                "unsupported verification type",
-            )),
+            _ => {
+                let error = XiaomiError::invalid_login_step("unsupported verification type");
+
+                Err(error)
+            }
         }
     }
 
     async fn finish_auth(&mut self, location: &str) -> Result<()> {
         if location.is_empty() {
-            return Err(XiaomiError::MissingLocation);
+            let error = XiaomiError::MissingLocation;
+
+            return Err(error);
         }
 
         let client = reqwest::Client::builder()

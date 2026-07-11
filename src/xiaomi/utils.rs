@@ -16,7 +16,9 @@ pub async fn read_login_response(response: reqwest::Response) -> Result<Vec<u8>>
 
 pub fn strip_login_prefix(body: &[u8]) -> Result<Vec<u8>> {
     if !body.starts_with(LOGIN_PREFIX.as_bytes()) {
-        return Err(XiaomiError::WrongLoginPrefix);
+        let error = XiaomiError::WrongLoginPrefix;
+
+        return Err(error);
     }
 
     Ok(body[LOGIN_PREFIX.len()..].to_vec())
