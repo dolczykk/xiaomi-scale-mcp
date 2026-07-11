@@ -41,7 +41,7 @@ impl App {
     pub async fn authorize(&mut self) -> anyhow::Result<(), anyhow::Error> {
         if let Some(token) = &mut self.credentials.token {
             log::info!("Xiaomi token login...");
-            self.client.login_with_token(&token).await?;
+            self.client.login_with_token(token.as_str()).await?;
             log::info!("Token login succeeded");
 
             return Ok(());
