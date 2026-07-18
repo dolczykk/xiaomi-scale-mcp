@@ -1,0 +1,12 @@
+[package]
+name = "xiaomi_scale_mcp"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.103"
+dotenvy = "0.15.7"
+flexi_logger = "0.31"
+log = "0.4"
+tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread"] }
+xiaomi-client = { path = "../xiaomi-client" }

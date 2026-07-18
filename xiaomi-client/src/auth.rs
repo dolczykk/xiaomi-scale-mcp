@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::xiaomi::{Result, errors::XiaomiError};
+use crate::{Result, errors::XiaomiError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoginChallenge {
@@ -67,7 +67,7 @@ pub struct LoginV1Response {
 pub struct LoginV2Response {
     pub user_id: i64,
 
-    #[serde(deserialize_with = "crate::xiaomi::utils::serde_base64::deserialize")]
+    #[serde(deserialize_with = "crate::utils::serde_base64::deserialize")]
     pub ssecurity: Vec<u8>,
 
     pub pass_token: String,
@@ -95,7 +95,7 @@ pub(crate) struct LoginV2Envelope {
 
     #[serde(
         default,
-        deserialize_with = "crate::xiaomi::utils::serde_base64::deserialize_optional"
+        deserialize_with = "crate::utils::serde_base64::deserialize_optional"
     )]
     ssecurity: Option<Vec<u8>>,
 
