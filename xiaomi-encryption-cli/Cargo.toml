@@ -7,5 +7,4 @@ edition = "2024"
 anyhow = "1.0.103"
 base64 = "0.22.1"
 clap = { version = "4.5.50", features = ["derive"] }
-url = "2.5.8"
 xiaomi-client = { path = "../xiaomi-client" }

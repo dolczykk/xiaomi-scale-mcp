@@ -4,7 +4,6 @@ use anyhow::{Context, Result, bail};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use clap::{Args, Parser, Subcommand};
-use url::form_urlencoded;
 use xiaomi_client::encryption::strip_wrapping_quotes;
 
 #[derive(Debug, Parser)]
@@ -19,7 +18,7 @@ pub enum Command {
     /// Encrypt Xiaomi request parameters.
     Encrypt(EncryptArgs),
 
-    /// Decrypt a Xiaomi response body using the original request form.
+    /// Decrypt a Xiaomi response body using ssecurity and request nonce.
     Decrypt(DecryptArgs),
 }
 
@@ -52,9 +51,9 @@ pub struct DecryptArgs {
     #[arg(long)]
     pub ssecurity: Option<String>,
 
-    /// Original URL-encoded Xiaomi request form, or '-' to read from stdin.
+    /// Base64 request nonce from _nonce.
     #[arg(long)]
-    pub form: Option<String>,
+    pub nonce: Option<String>,
 
     /// Base64 encrypted response body, or '-' to read from stdin.
     #[arg(long)]
@@ -140,16 +139,6 @@ pub fn optional_base64_string_or_prompt(
     Ok(value)
 }
 
-pub fn parse_form(form: &str) -> Vec<(String, String)> {
-    form_urlencoded::parse(form.trim().as_bytes())
-        .into_owned()
-        .collect()
-}
-
-pub fn request_nonce64(values: &[(String, String)]) -> Result<&str> {
-    form_value(values, "_nonce").context("missing required form field: _nonce")
-}
-
 pub fn prompt_command() -> Result<Command> {
     println!("Select Xiaomi encryption operation:");
     println!("  1) encrypt");
@@ -168,12 +157,6 @@ fn decode_base64(value: &str, name: &str) -> Result<Vec<u8>> {
     STANDARD
         .decode(value)
         .with_context(|| format!("invalid base64 for --{name}"))
-}
-
-fn form_value<'a>(values: &'a [(String, String)], key: &str) -> Option<&'a str> {
-    values
-        .iter()
-        .find_map(|(candidate, value)| (candidate == key).then_some(value.as_str()))
 }
 
 fn prompt_line(label: &str) -> Result<String> {

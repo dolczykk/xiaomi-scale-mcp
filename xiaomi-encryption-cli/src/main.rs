@@ -1,13 +1,12 @@
 mod parser;
 
 use xiaomi_client::encryption::{decrypt_response_payload, generate_encrypted_params_with_nonce};
-use xiaomi_client::utils::encode_form;
 
 use crate::parser::{
-    Cli, Command, DecryptArgs, EncryptArgs, optional_base64_string_or_prompt, parse_form,
-    prompt_command, request_nonce64, required_base64_string, required_value_or_prompt,
-    value_or_prompt_default,
+    Cli, Command, DecryptArgs, EncryptArgs, optional_base64_string_or_prompt, prompt_command,
+    required_base64_string, required_value_or_prompt, value_or_prompt_default,
 };
+use xiaomi_client::utils::encode_form;
 
 fn encrypt(mut args: EncryptArgs) -> anyhow::Result<()> {
     let ssecurity = required_base64_string(&mut args.ssecurity, "ssecurity", "ssecurity base64")?;
@@ -34,11 +33,9 @@ fn encrypt(mut args: EncryptArgs) -> anyhow::Result<()> {
 
 fn decrypt(mut args: DecryptArgs) -> anyhow::Result<()> {
     let ssecurity = required_base64_string(&mut args.ssecurity, "ssecurity", "ssecurity base64")?;
-    let form = required_value_or_prompt(&mut args.form, "Original URL-encoded request form")?;
+    let nonce = required_base64_string(&mut args.nonce, "nonce", "_nonce base64")?;
     let body = required_value_or_prompt(&mut args.body, "Base64 response body")?;
-    let values = parse_form(&form);
-    let nonce = request_nonce64(&values)?;
-    let plaintext = decrypt_response_payload(&ssecurity, nonce, &body)?;
+    let plaintext = decrypt_response_payload(&ssecurity, &nonce, &body)?;
 
     println!("{plaintext}");
     Ok(())
@@ -67,14 +64,11 @@ mod tests {
     fn decrypts_response_body_using_nonce_from_request_form() {
         let ssecurity = "c3NlY3VyaXR5";
         let nonce = "MTIzNDU2Nzg5MDEy";
-        let form = encode_form(&[("_nonce".to_string(), nonce.to_string())]);
         let signed_nonce = signed_nonce_from_base64(ssecurity, nonce).unwrap();
         let ciphertext =
             encrypt_bytes(&signed_nonce, br#"{"code":0,"result":{"ok":true}}"#).unwrap();
         let body = STANDARD.encode(ciphertext);
 
-        let values = parse_form(&form);
-        let nonce = request_nonce64(&values).unwrap();
         assert_eq!(
             decrypt_response_payload(ssecurity, nonce, &body).unwrap(),
             r#"{"code":0,"result":{"ok":true}}"#

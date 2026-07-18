@@ -2457,7 +2457,6 @@ dependencies = [
  "anyhow",
  "base64",
  "clap",
- "url",
  "xiaomi-client",
 ]
 
