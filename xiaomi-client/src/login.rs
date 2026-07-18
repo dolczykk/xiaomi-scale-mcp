@@ -3,7 +3,7 @@ use std::time::Duration;
 use reqwest::header::{CONTENT_TYPE, COOKIE, LOCATION};
 use url::Url;
 
-use crate::xiaomi::{
+use crate::{
     APP_XIAOMI_HOME, Client, OAUTH2_AUTHORIZE_URL, Result, SERVICE_LOGIN_AUTH2_URL,
     SERVICE_LOGIN_URL,
     auth::{

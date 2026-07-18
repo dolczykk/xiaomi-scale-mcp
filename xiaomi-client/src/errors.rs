@@ -1,4 +1,4 @@
-use crate::xiaomi::auth::LoginChallenge;
+use crate::auth::LoginChallenge;
 
 #[derive(Debug, thiserror::Error)]
 pub enum XiaomiError {

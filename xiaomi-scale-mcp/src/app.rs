@@ -1,9 +1,9 @@
-use crate::xiaomi::Client;
-use crate::xiaomi::auth::LoginChallenge;
-use crate::xiaomi::errors::XiaomiError;
 use anyhow::{Context, bail};
 use std::io::Write;
 use std::{env, io};
+use xiaomi_client::Client;
+use xiaomi_client::auth::LoginChallenge;
+use xiaomi_client::errors::XiaomiError;
 
 #[derive(Debug)]
 struct Credentials {

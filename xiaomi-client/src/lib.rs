@@ -6,14 +6,16 @@ use base64::engine::general_purpose::STANDARD;
 use reqwest::header::CONTENT_TYPE;
 use serde_json::value::RawValue;
 
-use crate::xiaomi::{
+use crate::{
     auth::PendingAuth,
+    encryption::{decrypt_response_payload, generate_encrypted_params},
     errors::XiaomiError,
-    utils::{crypt, encode_form, gen_nonce, gen_signature64, gen_signed_nonce},
+    utils::encode_form,
 };
 
 pub mod auth;
 mod cookies;
+pub mod encryption;
 pub mod errors;
 mod login;
 pub mod utils;
@@ -62,24 +64,14 @@ impl Client {
         params: &str,
         headers: &HashMap<String, String>,
     ) -> Result<Vec<u8>> {
-        let mut form = vec![("data".to_string(), params.to_string())];
-
-        let nonce = gen_nonce();
-        let signed_nonce = gen_signed_nonce(&self.ssecurity, &nonce);
-
-        let rc4_hash = gen_signature64("POST", api_url, &form, &signed_nonce);
-        form.push(("rc4_hash__".to_string(), rc4_hash));
-
-        for (_, value) in &mut form {
-            let ciphertext = crypt(&signed_nonce, value.as_bytes())?;
-            *value = STANDARD.encode(ciphertext);
-        }
-
-        let signature = gen_signature64("POST", api_url, &form, &signed_nonce);
-        form.push(("signature".to_string(), signature));
-        form.push(("_nonce".to_string(), STANDARD.encode(nonce)));
-
-        let body = encode_form(&form);
+        let ssecurity64 = STANDARD.encode(&self.ssecurity);
+        let encrypted = generate_encrypted_params(
+            api_url,
+            "POST",
+            &ssecurity64,
+            vec![("data".to_string(), params.to_string())],
+        )?;
+        let body = encode_form(&encrypted.form);
         let mut request = self
             .client
             .post(format!("{}{}", base_url, api_url))
@@ -98,9 +90,10 @@ impl Client {
         }
 
         let body = response.bytes().await?;
-        let ciphertext = STANDARD.decode(body.as_ref())?;
-        let plaintext = crypt(&signed_nonce, &ciphertext)?;
-        let response: ApiResponse = serde_json::from_slice(&plaintext)?;
+        let body = std::str::from_utf8(body.as_ref())
+            .map_err(|err| XiaomiError::Auth(format!("response body is not UTF-8: {err}")))?;
+        let plaintext = decrypt_response_payload(&ssecurity64, &encrypted.nonce64, body)?;
+        let response: ApiResponse = serde_json::from_str(&plaintext)?;
 
         if response.code != 0 {
             let error = XiaomiError::Api(response.message);
@@ -122,7 +115,7 @@ struct ApiResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::xiaomi::utils::strip_login_prefix;
+    use crate::utils::strip_login_prefix;
 
     #[test]
     fn strips_login_prefix() {
@@ -139,34 +132,5 @@ mod tests {
             strip_login_prefix(br#"{"sid":"miothealth"}"#),
             Err(XiaomiError::WrongLoginPrefix)
         ));
-    }
-
-    #[test]
-    fn generates_signed_nonce() {
-        let signed = gen_signed_nonce(b"ssecurity", b"nonce");
-        assert_eq!(
-            STANDARD.encode(signed),
-            "/oX2A3COQbfnXTsssP9J8BTo+5jiwum99lk9VJaElVI="
-        );
-    }
-
-    #[test]
-    fn crypt_round_trips() {
-        let key = [7_u8; 32];
-        let plaintext = b"hello xiaomi";
-        let ciphertext = crypt(&key, plaintext).unwrap();
-        assert_ne!(ciphertext, plaintext);
-        assert_eq!(crypt(&key, &ciphertext).unwrap(), plaintext);
-    }
-
-    #[test]
-    fn signature_matches_expected_value() {
-        let values = vec![("data".to_string(), "{\"x\":1}".to_string())];
-        let signed_nonce = b"12345678901234567890123456789012";
-
-        assert_eq!(
-            gen_signature64("POST", "/app/test", &values, signed_nonce),
-            "mqtlSvRzIbROSU2EFkWdWlHTCRE="
-        );
     }
 }

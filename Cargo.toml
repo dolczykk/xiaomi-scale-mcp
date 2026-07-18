@@ -1,25 +1,6 @@
-[package]
-name = "xiaomi_scale_mcp"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-anyhow = "1.0.103"
-base64 = "0.22.1"
-dotenvy = "0.15.7"
-flexi_logger = "0.31"
-log = "0.4"
-md5 = "0.8.1"
-rand = "0.10.2"
-rc4 = "0.2.0"
-reqwest = { version = "0.13.4", features = ["cookies", "json"] }
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = { version = "1.0.150", features = ["raw_value"] }
-sha1 = "0.11.0"
-sha2 = "0.11.0"
-thiserror = "2.0.18"
-tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread"] }
-url = "2.5.8"
+[workspace]
+members = ["xiaomi-client", "xiaomi-scale-mcp", "xiaomi-encryption-cli"]
+resolver = "3"
 
 [profile.release]
 opt-level = 2
