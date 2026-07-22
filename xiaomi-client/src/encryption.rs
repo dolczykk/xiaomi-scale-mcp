@@ -10,15 +10,6 @@ use sha1::Sha1;
 
 use crate::{Result, errors::XiaomiError, utils::crypt};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EncryptedRequest {
-    pub nonce: Vec<u8>,
-    pub nonce64: String,
-    pub signed_nonce: Vec<u8>,
-    pub signed_nonce64: String,
-    pub form: Vec<(String, String)>,
-}
-
 pub fn generate_nonce() -> Vec<u8> {
     let mut nonce = Vec::with_capacity(16);
     nonce.extend_from_slice(&rand::rng().random::<i64>().to_be_bytes());
@@ -94,7 +85,7 @@ pub fn generate_encrypted_params(
     method: &str,
     ssecurity64: &str,
     params: Vec<(String, String)>,
-) -> Result<EncryptedRequest> {
+) -> Result<Vec<(String, String)>> {
     generate_encrypted_params_with_nonce(uri, method, ssecurity64, None, params)
 }
 
@@ -104,11 +95,9 @@ pub fn generate_encrypted_params_with_nonce(
     ssecurity64: &str,
     nonce64: Option<&str>,
     mut params: Vec<(String, String)>,
-) -> Result<EncryptedRequest> {
+) -> Result<Vec<(String, String)>> {
     let nonce64 = nonce64.map_or_else(generate_nonce64, ToString::to_string);
-    let nonce = decode_base64(&nonce64)?;
     let signed_nonce64 = signed_nonce64(ssecurity64, &nonce64)?;
-    let signed_nonce = decode_base64(&signed_nonce64)?;
 
     let rc4_hash = gen_enc_signature(uri, method, &signed_nonce64, &params);
     params.push(("rc4_hash__".to_string(), rc4_hash));
@@ -124,13 +113,7 @@ pub fn generate_encrypted_params_with_nonce(
     form.push(("ssecurity".to_string(), ssecurity64.to_string()));
     form.push(("_nonce".to_string(), nonce64.clone()));
 
-    Ok(EncryptedRequest {
-        nonce,
-        nonce64,
-        signed_nonce,
-        signed_nonce64,
-        form,
-    })
+    Ok(form)
 }
 
 pub fn decrypt_response_payload(
@@ -243,11 +226,11 @@ mod tests {
         )
         .unwrap();
 
-        assert!(encrypted.form.iter().any(|(key, _)| key == "data"));
-        assert!(encrypted.form.iter().any(|(key, _)| key == "rc4_hash__"));
-        assert!(encrypted.form.iter().any(|(key, _)| key == "signature"));
-        assert!(encrypted.form.iter().any(|(key, _)| key == "ssecurity"));
-        assert!(encrypted.form.iter().any(|(key, _)| key == "_nonce"));
+        assert!(encrypted.iter().any(|(key, _)| key == "data"));
+        assert!(encrypted.iter().any(|(key, _)| key == "rc4_hash__"));
+        assert!(encrypted.iter().any(|(key, _)| key == "signature"));
+        assert!(encrypted.iter().any(|(key, _)| key == "ssecurity"));
+        assert!(encrypted.iter().any(|(key, _)| key == "_nonce"));
     }
 
     #[test]
@@ -261,58 +244,41 @@ mod tests {
         )
         .unwrap();
         let data = encrypted
-            .form
             .iter()
             .find_map(|(key, value)| (key == "data").then_some(value))
             .unwrap();
-        let plaintext = decrypt_rc4_base64(&encrypted.signed_nonce64, data).unwrap();
+        let signed_nonce = signed_nonce64("c3NlY3VyaXR5", "MTIzNDU2Nzg5MDEy").unwrap();
+        let plaintext = decrypt_rc4_base64(&signed_nonce, data).unwrap();
 
         assert_eq!(plaintext, br#"{"value":1}"#);
     }
 
     #[test]
     fn decrypts_plain_utf8_response_payload() {
-        let encrypted = generate_encrypted_params_with_nonce(
-            "/app/test",
-            "POST",
-            "c3NlY3VyaXR5",
-            Some("MTIzNDU2Nzg5MDEy"),
-            vec![("data".to_string(), "{}".to_string())],
-        )
-        .unwrap();
-        let ciphertext = encrypt_bytes(
-            &encrypted.signed_nonce,
-            br#"{"code":0,"result":{"ok":true}}"#,
-        )
-        .unwrap();
+        let signed_nonce = signed_nonce_from_base64("c3NlY3VyaXR5", "MTIzNDU2Nzg5MDEy").unwrap();
+        let ciphertext =
+            encrypt_bytes(&signed_nonce, br#"{"code":0,"result":{"ok":true}}"#).unwrap();
         let payload = STANDARD.encode(ciphertext);
 
         assert_eq!(
-            decrypt_response_payload("c3NlY3VyaXR5", &encrypted.nonce64, &payload).unwrap(),
+            decrypt_response_payload("c3NlY3VyaXR5", "MTIzNDU2Nzg5MDEy", &payload).unwrap(),
             r#"{"code":0,"result":{"ok":true}}"#
         );
     }
 
     #[test]
     fn decrypts_gzip_response_payload() {
-        let encrypted = generate_encrypted_params_with_nonce(
-            "/app/test",
-            "POST",
-            "c3NlY3VyaXR5",
-            Some("MTIzNDU2Nzg5MDEy"),
-            vec![("data".to_string(), "{}".to_string())],
-        )
-        .unwrap();
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
         encoder
             .write_all(br#"{"code":0,"result":{"ok":true}}"#)
             .unwrap();
         let compressed = encoder.finish().unwrap();
-        let ciphertext = encrypt_bytes(&encrypted.signed_nonce, &compressed).unwrap();
+        let signed_nonce = signed_nonce_from_base64("c3NlY3VyaXR5", "MTIzNDU2Nzg5MDEy").unwrap();
+        let ciphertext = encrypt_bytes(&signed_nonce, &compressed).unwrap();
         let payload = STANDARD.encode(ciphertext);
 
         assert_eq!(
-            decrypt_response_payload("c3NlY3VyaXR5", &encrypted.nonce64, &payload).unwrap(),
+            decrypt_response_payload("c3NlY3VyaXR5", "MTIzNDU2Nzg5MDEy", &payload).unwrap(),
             r#"{"code":0,"result":{"ok":true}}"#
         );
     }

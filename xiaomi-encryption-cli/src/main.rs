@@ -18,7 +18,7 @@ fn encrypt(mut args: EncryptArgs) -> anyhow::Result<()> {
         "nonce",
         "Nonce base64 (blank to generate)",
     )?;
-    let encrypted = generate_encrypted_params_with_nonce(
+    let encrypted_params = generate_encrypted_params_with_nonce(
         &api_url,
         &method,
         &ssecurity,
@@ -26,7 +26,7 @@ fn encrypt(mut args: EncryptArgs) -> anyhow::Result<()> {
         vec![("data".to_string(), data)],
     )?;
 
-    println!("{}", encode_form(&encrypted.form));
+    println!("{}", encode_form(&encrypted_params));
 
     Ok(())
 }
@@ -61,7 +61,7 @@ mod tests {
     use xiaomi_client::encryption::{encrypt_bytes, signed_nonce_from_base64};
 
     #[test]
-    fn decrypts_response_body_using_nonce_from_request_form() {
+    fn decrypts_response_body_using_nonce() {
         let ssecurity = "c3NlY3VyaXR5";
         let nonce = "MTIzNDU2Nzg5MDEy";
         let signed_nonce = signed_nonce_from_base64(ssecurity, nonce).unwrap();
