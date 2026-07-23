@@ -1,21 +1,14 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use base64::Engine;
-use base64::engine::general_purpose::STANDARD;
-use reqwest::header::{CONTENT_TYPE, COOKIE};
-use serde::Deserialize;
-use serde::de::DeserializeOwned;
 use crate::{
     auth::PendingAuth,
-    encryption::{decrypt_response_payload, generate_encrypted_params},
     errors::XiaomiError,
     utils::{
-        encode_form, is_daylight_saving_time, local_timezone_name,
-        local_timezone_offset, normalize_api_signature_uri, random_lowercase_string,
+        is_daylight_saving_time, local_timezone_name, local_timezone_offset,
+        random_lowercase_string,
     },
 };
-use crate::home::XiaomiHomeResponse;
 
 pub mod auth;
 mod cookies;
@@ -48,7 +41,7 @@ pub struct Client {
     auth: Option<PendingAuth>,
     device_id: Option<String>,
     locale: String,
-    region: String
+    region: String,
 }
 
 impl Client {
@@ -67,7 +60,7 @@ impl Client {
             auth: None,
             device_id: Some(random_lowercase_string(6)),
             locale: String::from("en_US"),
-            region: String::from("cn")
+            region: String::from("cn"),
         })
     }
 
@@ -168,11 +161,7 @@ impl Client {
 
         headers
     }
-
-
 }
-
-
 
 #[cfg(test)]
 mod tests {

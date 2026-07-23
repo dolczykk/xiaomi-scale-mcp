@@ -1,6 +1,6 @@
+use crate::Client;
 use crate::home::XiaomiHomeResponse;
 use serde::{Deserialize, Serialize};
-use crate::Client;
 
 const GET_DEVICES_PATH: &str = "/home/device_list_page";
 
@@ -41,7 +41,7 @@ impl Default for GetDevicesRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct GetDeviceResponse {
-    pub list: Vec<DeviceItem>
+    pub list: Vec<DeviceItem>,
 }
 
 #[derive(Debug, Deserialize)]

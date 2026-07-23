@@ -1,13 +1,13 @@
-use std::collections::HashMap;
-use base64::Engine;
-use base64::engine::general_purpose::STANDARD;
-use reqwest::header::{CONTENT_TYPE, COOKIE};
-use serde::de::DeserializeOwned;
-use serde::Deserialize;
 use crate::Client;
 use crate::encryption::{decrypt_response_payload, generate_encrypted_params};
 use crate::errors::XiaomiError;
 use crate::utils::{encode_form, normalize_api_signature_uri};
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
+use reqwest::header::{CONTENT_TYPE, COOKIE};
+use serde::Deserialize;
+use serde::de::DeserializeOwned;
+use std::collections::HashMap;
 
 pub mod devices;
 
