@@ -1,8 +1,8 @@
-use reqwest::header::{HeaderMap, SET_COOKIE};
-
 use crate::{Result, errors::XiaomiError};
+use reqwest::header::{HeaderMap, SET_COOKIE};
+use serde::Deserialize;
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize)]
 struct ExtensionPragma {
     #[serde(deserialize_with = "crate::utils::serde_base64::deserialize")]
     ssecurity: Vec<u8>,

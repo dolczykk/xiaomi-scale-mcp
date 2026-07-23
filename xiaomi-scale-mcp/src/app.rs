@@ -1,9 +1,11 @@
 use anyhow::{Context, bail};
+use std::fs;
 use std::io::Write;
 use std::{env, io};
 use xiaomi_client::Client;
 use xiaomi_client::auth::LoginChallenge;
 use xiaomi_client::errors::XiaomiError;
+use xiaomi_client::home::devices::GetDevicesRequest;
 
 #[derive(Debug)]
 struct Credentials {
@@ -27,7 +29,15 @@ impl App {
     }
 
     pub fn init() -> anyhow::Result<Self, anyhow::Error> {
-        let client = Client::new().with_context(|| "Failed to initialize client".to_string())?;
+        let mut client =
+            Client::new().with_context(|| "Failed to initialize client".to_string())?;
+
+        if let Ok(sid) = env::var("XIAOMI_SID") {
+            client = client.with_sid(sid);
+        }
+        if let Ok(device_id) = env::var("XIAOMI_DEVICE_ID") {
+            client = client.with_device_id(device_id);
+        }
 
         let creds = Credentials {
             login: env::var("XIAOMI_USERNAME").context("XIAOMI_USERNAME not set")?,
@@ -43,6 +53,11 @@ impl App {
             log::info!("Xiaomi token login...");
             self.client.login_with_token(token.as_str()).await?;
             log::info!("Token login succeeded");
+
+            let devices_request = GetDevicesRequest::default();
+            let response = self.client.get_devices(&devices_request).await?;
+
+            println!("List of devices: {:?}", response);
 
             return Ok(());
         }
@@ -66,6 +81,12 @@ impl App {
 
         log::info!("Login succeeded");
         log::info!("Token: {}", self.client.token());
+        log::info!("Device ID: {}", self.client.device_id().unwrap());
+
+        let devices_request = GetDevicesRequest::default();
+        let response = self.client.get_devices(&devices_request).await?;
+
+        println!("List of devices: {:?}", response);
 
         Ok(())
     }
@@ -75,15 +96,50 @@ impl App {
         mut challenge: LoginChallenge,
     ) -> anyhow::Result<()> {
         loop {
+            if let Some(captcha) = &challenge.captcha {
+                let captcha_path = env::current_dir()
+                    .context("failed to resolve current directory")?
+                    .join("xiaomi-captcha.jpg");
+                fs::write(&captcha_path, captcha).with_context(|| {
+                    format!(
+                        "failed to write captcha image to {}",
+                        captcha_path.display()
+                    )
+                })?;
+                println!(
+                    "Xiaomi captcha required. Image saved to {}.",
+                    captcha_path.display()
+                );
+
+                let captcha_code = self.read_challenge_input(
+                    "Enter Xiaomi captcha code: ",
+                    &challenge,
+                    "failed to read Xiaomi captcha code from stdin",
+                )?;
+
+                match self.client.login_with_captcha(&captcha_code).await {
+                    Ok(()) => return Ok(()),
+                    Err(XiaomiError::LoginChallenge(next)) => {
+                        challenge = next;
+                        continue;
+                    }
+                    Err(err) => return Err(err.into()),
+                }
+            }
+
             if challenge.verify_phone.is_some() || challenge.verify_email.is_some() {
                 if let Some(phone) = &challenge.verify_phone {
-                    bail!("Verification ticket required for phone {phone}.");
+                    println!("Xiaomi sent a verification code to phone {phone}.");
                 }
                 if let Some(email) = &challenge.verify_email {
-                    bail!("Verification ticket required for email {email}.");
+                    println!("Xiaomi sent a verification code to email {email}.");
                 }
 
-                let ticket = self.read_verify_ticket(&challenge)?;
+                let ticket = self.read_challenge_input(
+                    "Enter Xiaomi verification code: ",
+                    &challenge,
+                    "failed to read Xiaomi verification code from stdin",
+                )?;
 
                 match self.client.login_with_verify(&ticket).await {
                     Ok(()) => return Ok(()),
@@ -101,22 +157,27 @@ impl App {
         }
     }
 
-    fn read_verify_ticket(&mut self, challenge: &LoginChallenge) -> anyhow::Result<String> {
-        print!("Enter Xiaomi verification code: ");
+    fn read_challenge_input(
+        &mut self,
+        prompt: &str,
+        challenge: &LoginChallenge,
+        read_error: &str,
+    ) -> anyhow::Result<String> {
+        print!("{prompt}");
         io::stdout().flush().context("failed to flush stdout")?;
 
-        let mut ticket = String::new();
+        let mut value = String::new();
         io::stdin()
-            .read_line(&mut ticket)
-            .context("failed to read Xiaomi verification code from stdin")?;
+            .read_line(&mut value)
+            .context(read_error.to_string())?;
 
-        let ticket = ticket.trim().to_string();
-        if ticket.is_empty() {
+        let value = value.trim().to_string();
+        if value.is_empty() {
             let error = XiaomiError::LoginChallenge(challenge.clone());
 
             bail!(error);
         }
 
-        Ok(ticket)
+        Ok(value)
     }
 }

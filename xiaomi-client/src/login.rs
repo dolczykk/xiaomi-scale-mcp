@@ -1,18 +1,18 @@
 use std::time::Duration;
 
 use reqwest::header::{CONTENT_TYPE, COOKIE, LOCATION};
+use serde::Deserialize;
 use url::Url;
 
 use crate::{
-    APP_XIAOMI_HOME, Client, OAUTH2_AUTHORIZE_URL, Result, SERVICE_LOGIN_AUTH2_URL,
-    SERVICE_LOGIN_URL,
+    Client, OAUTH2_AUTHORIZE_URL, Result, SERVICE_LOGIN_AUTH2_URL, SERVICE_LOGIN_URL,
     auth::{
         LoginChallenge, LoginV1Response, LoginV2Outcome, LoginV2Response, PendingAuth,
         parse_login_v2_outcome, parse_login_v2_response,
     },
     cookies::{find_cookie, parse_extension_ssecurity},
     errors::XiaomiError,
-    utils::{encode_form, random_string, read_login_response},
+    utils::{encode_form, read_login_response},
 };
 
 const ACCOUNT_BASE_URL: &str = "https://account.xiaomi.com";
@@ -29,14 +29,22 @@ impl Client {
 
     pub async fn login_with_token(&mut self, token: &str) -> Result<()> {
         let (user_id, pass_token) = token.split_once(':').ok_or(XiaomiError::InvalidToken)?;
-        let url = format!("{}?_json=true&sid={}", SERVICE_LOGIN_URL, APP_XIAOMI_HOME);
+        let url = format!(
+            "{}?_json=true&appName=com.xiaomi.smarthome&sid={}&_locale={}",
+            SERVICE_LOGIN_URL, self.sid, self.locale
+        );
 
         let response = self
             .client
             .get(url)
             .header(
                 COOKIE,
-                format!("userId={}; passToken={}", user_id, pass_token),
+                format!(
+                    "userId={}; passToken={}; deviceId={}",
+                    user_id,
+                    pass_token,
+                    self.device_id.as_deref().unwrap_or_default()
+                ),
             )
             .send()
             .await?;
@@ -158,7 +166,7 @@ impl Client {
     }
 
     async fn service_login(&self) -> Result<LoginV1Response> {
-        let url = format!("{}?_json=true&sid={}", SERVICE_LOGIN_URL, APP_XIAOMI_HOME);
+        let url = format!("{}?_json=true&sid={}", SERVICE_LOGIN_URL, self.sid);
         let response = self.client.get(url).send().await?;
         let body = read_login_response(response).await?;
 
@@ -182,7 +190,9 @@ impl Client {
             ("user".to_string(), username.to_string()),
         ];
 
-        let mut cookies = format!("deviceId={}", random_string(16));
+        let device_id = self.device_id.clone().unwrap_or_default();
+
+        let mut cookies = format!("deviceId={}", device_id.as_str());
         if let Some(auth) = &self.auth {
             if let Some(captcha_code) = &auth.captcha_code {
                 form.push(("captCode".to_string(), captcha_code.clone()));
@@ -378,10 +388,34 @@ impl Client {
             .build()?;
 
         let mut url = Url::parse(location)?;
+        let mut c_user_id = String::new();
+        let mut service_token = String::new();
 
         for _ in 0..10 {
-            let response = client.get(url.clone()).send().await?;
+            let mut request = client.get(url.clone());
+            if self.user_id != 0 && !self.pass_token.is_empty() {
+                request = request.header(
+                    COOKIE,
+                    format!("userId={}; passToken={}", self.user_id, self.pass_token),
+                );
+            }
 
+            let response = request.send().await?;
+
+            if let Some(user_id) = find_cookie(response.headers(), "userId")
+                && let Ok(user_id) = user_id.parse::<i64>()
+            {
+                self.user_id = user_id;
+            }
+            if let Some(value) = find_cookie(response.headers(), "cUserId") {
+                c_user_id = value;
+            }
+            if let Some(value) = find_cookie(response.headers(), "serviceToken") {
+                service_token = value;
+            }
+            if let Some(value) = find_cookie(response.headers(), "passToken") {
+                self.pass_token = value;
+            }
             if let Some(ssecurity) = parse_extension_ssecurity(response.headers())? {
                 self.ssecurity = ssecurity;
             }
@@ -400,6 +434,8 @@ impl Client {
             url = url.join(next)?;
         }
 
+        self.c_user_id = c_user_id;
+        self.service_token = service_token;
         self.auth = None;
 
         Ok(())
@@ -429,12 +465,12 @@ fn raw_login_error(body: &[u8]) -> String {
     format!("{}", String::from_utf8_lossy(body))
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize)]
 struct IdentityListResponse {
     flag: i64,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize)]
 struct VerifyMethodResponse {
     #[serde(rename = "maskedPhone")]
     masked_phone: Option<String>,
@@ -443,7 +479,7 @@ struct VerifyMethodResponse {
     masked_email: Option<String>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize)]
 struct SendTicketResponse {
     code: i32,
 
@@ -451,18 +487,18 @@ struct SendTicketResponse {
     captcha_url: Option<String>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize)]
 struct VerifyResponse {
     #[serde(default)]
     location: String,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize)]
 struct OAuthAuthorizeResponse {
     data: OAuthAuthorizeData,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize)]
 struct OAuthAuthorizeData {
     #[serde(rename = "oauthLoginUrl")]
     oauth_login_url: String,
