@@ -20,21 +20,6 @@ pub fn strip_login_prefix(body: &[u8]) -> Result<Vec<u8>> {
     Ok(body[LOGIN_PREFIX.len()..].to_vec())
 }
 
-pub fn crypt(key: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
-    use rc4::KeyInit;
-    use rc4::StreamCipher;
-
-    let mut cipher = rc4::Rc4::new_from_slice(key).map_err(|_| XiaomiError::Crypto)?;
-
-    let mut drop = vec![0_u8; 1024];
-    cipher.apply_keystream(&mut drop);
-
-    let mut ciphertext = plaintext.to_vec();
-    cipher.apply_keystream(&mut ciphertext);
-
-    Ok(ciphertext)
-}
-
 pub fn random_string(len: usize) -> String {
     const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let mut rng = rand::rng();
@@ -56,23 +41,6 @@ pub fn random_lowercase_string(len: usize) -> String {
         })
         .collect()
 }
-
-// pub fn generate_agent() -> String {
-//     let mut rng = rand::rng();
-//     let random_text: String = (0..18)
-//         .map(|_| rng.random_range(b'a'..=b'z') as char)
-//         .collect();
-//     let agent_id: String = (0..13)
-//         .map(|_| rng.random_range(b'A'..=b'E') as char)
-//         .collect();
-//
-//     let mut agent = String::new();
-//     agent.push_str(&random_text);
-//     agent.push('-');
-//     agent.push_str(&agent_id);
-//     agent.push_str(" APP/com.xiaomi.mihome APPV/10.5.201");
-//     agent
-// }
 
 pub fn encode_form(values: &[(String, String)]) -> String {
     let mut serializer = Serializer::new(String::new());

@@ -1,6 +1,6 @@
-use crate::home::XIAOMI_HOME_CORE_BASE_API;
-use crate::{Client, XiaomiHomeResponse};
+use crate::home::XiaomiHomeResponse;
 use serde::{Deserialize, Serialize};
+use crate::Client;
 
 const GET_DEVICES_PATH: &str = "/home/device_list_page";
 
@@ -87,8 +87,8 @@ impl Client {
         );
 
         let response: XiaomiHomeResponse<GetDeviceResponse> = self
-            .request(
-                XIAOMI_HOME_CORE_BASE_API,
+            .home_request(
+                super::get_xiaomi_home_api_url(self.region.as_str()).as_str(),
                 GET_DEVICES_PATH,
                 json.as_str(),
                 &headers,

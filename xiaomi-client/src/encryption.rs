@@ -8,7 +8,7 @@ use rand::RngExt;
 use sha1::Digest as Sha1Digest;
 use sha1::Sha1;
 
-use crate::{Result, errors::XiaomiError, utils::crypt};
+use crate::{Result, errors::XiaomiError};
 
 pub fn generate_nonce() -> Vec<u8> {
     let mut nonce = Vec::with_capacity(16);
@@ -40,6 +40,21 @@ pub fn signed_nonce_from_base64(ssecurity64: &str, nonce64: &str) -> Result<Vec<
 
 pub fn signed_nonce64(ssecurity64: &str, nonce64: &str) -> Result<String> {
     Ok(STANDARD.encode(signed_nonce_from_base64(ssecurity64, nonce64)?))
+}
+
+pub fn crypt(key: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
+    use rc4::KeyInit;
+    use rc4::StreamCipher;
+
+    let mut cipher = rc4::Rc4::new_from_slice(key).map_err(|_| XiaomiError::Crypto)?;
+
+    let mut drop = vec![0_u8; 1024];
+    cipher.apply_keystream(&mut drop);
+
+    let mut ciphertext = plaintext.to_vec();
+    cipher.apply_keystream(&mut ciphertext);
+
+    Ok(ciphertext)
 }
 
 pub fn encrypt_bytes(signed_nonce: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
