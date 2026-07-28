@@ -7,7 +7,7 @@ use xiaomi_client::auth::LoginChallenge;
 use xiaomi_client::errors::XiaomiError;
 use xiaomi_client::home::account::GetWeightAccountsRequest;
 use xiaomi_client::home::devices::GetDevicesRequest;
-use xiaomi_client::home::weight::WeightIndexInfoRequest;
+use xiaomi_client::home::weight::{WeightIndexInfoRequest, WeightUserDataRequest};
 
 #[derive(Debug)]
 struct Credentials {
@@ -124,6 +124,19 @@ impl App {
             .await?;
 
         println!("Weight index info: {:?}", index);
+
+        let request = WeightUserDataRequest {
+            model: weight.model.clone(),
+            uid: weight.user_id.to_string(),
+            device_id: weight.device_id.clone(),
+            account_id: account_response.result.first().unwrap().account_id.clone(),
+            begin_time: 1784237018435,
+            end_time: -28800,
+            page_size: 20,
+        };
+        let weight_response = self.client.get_weight_user_data(&request).await?;
+
+        println!("Weight data: {:?}", weight_response);
 
         Ok(())
     }
