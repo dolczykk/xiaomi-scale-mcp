@@ -5,7 +5,9 @@ use std::{env, io};
 use xiaomi_client::Client;
 use xiaomi_client::auth::LoginChallenge;
 use xiaomi_client::errors::XiaomiError;
+use xiaomi_client::home::account::GetWeightAccountsRequest;
 use xiaomi_client::home::devices::GetDevicesRequest;
+use xiaomi_client::home::weight::WeightIndexInfoRequest;
 
 #[derive(Debug)]
 struct Credentials {
@@ -38,6 +40,9 @@ impl App {
         if let Ok(device_id) = env::var("XIAOMI_DEVICE_ID") {
             client = client.with_device_id(device_id);
         }
+        if let Ok(region) = env::var("XIAOMI_REGION") {
+            client = client.with_region(region);
+        }
 
         let creds = Credentials {
             login: env::var("XIAOMI_USERNAME").context("XIAOMI_USERNAME not set")?,
@@ -54,10 +59,7 @@ impl App {
             self.client.login_with_token(token.as_str()).await?;
             log::info!("Token login succeeded");
 
-            let devices_request = GetDevicesRequest::default();
-            let response = self.client.get_devices(&devices_request).await?;
-
-            println!("List of devices: {:?}", response);
+            self.demo().await?;
 
             return Ok(());
         }
@@ -83,10 +85,45 @@ impl App {
         log::info!("Token: {}", self.client.token());
         log::info!("Device ID: {}", self.client.device_id().unwrap());
 
+        self.demo().await?;
+
+        Ok(())
+    }
+
+    async fn demo(&self) -> anyhow::Result<()> {
         let devices_request = GetDevicesRequest::default();
         let response = self.client.get_devices(&devices_request).await?;
 
+        let weight = response
+            .result
+            .list
+            .iter()
+            .find(|d| d.model.contains("yunmai.scales.ms104"))
+            .unwrap();
+
         println!("List of devices: {:?}", response);
+
+        let account_request =
+            GetWeightAccountsRequest::new(weight.user_id.to_string(), weight.device_id.clone());
+        let account_response = self
+            .client
+            .get_weight_accounts(&account_request, &weight.model)
+            .await?;
+
+        println!("accounts: {:?}", account_response);
+
+        let index_request = WeightIndexInfoRequest::new(
+            weight.user_id.to_string(),
+            account_response.result.first().unwrap().account_id.clone(),
+            weight.device_id.clone(),
+        );
+
+        let index = self
+            .client
+            .get_weight_index_info(&index_request, &weight.model)
+            .await?;
+
+        println!("Weight index info: {:?}", index);
 
         Ok(())
     }

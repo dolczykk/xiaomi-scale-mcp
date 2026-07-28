@@ -5,17 +5,17 @@ use crate::utils::{encode_form, normalize_api_signature_uri};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use reqwest::header::{CONTENT_TYPE, COOKIE};
-use serde::Deserialize;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+pub mod account;
 pub mod devices;
+mod utils;
+pub mod weight;
 
+const XIAOMI_HOME_BASE_API: &str = "https://{}.api.io.mi.com/app";
 const XIAOMI_HOME_CORE_BASE_API: &str = "https://{}.core.api.io.mi.com/app/v2";
-
-pub fn get_xiaomi_home_api_url(region: &str) -> String {
-    XIAOMI_HOME_CORE_BASE_API.replace("{}", region)
-}
 
 #[derive(Debug, Deserialize)]
 #[serde(bound = "T: DeserializeOwned")]
@@ -34,21 +34,24 @@ impl<T: DeserializeOwned> XiaomiHomeResponse<T> {
 }
 
 impl Client {
-    pub async fn home_request<T: DeserializeOwned>(
+    pub async fn home_request<TRequest: Serialize, TResponse: DeserializeOwned>(
         &self,
         base_url: &str,
         api_url: &str,
-        params: &str,
+        params: &TRequest,
         headers: &HashMap<String, String>,
-    ) -> crate::Result<XiaomiHomeResponse<T>> {
+    ) -> crate::Result<XiaomiHomeResponse<TResponse>> {
         let ssecurity64 = STANDARD.encode(&self.ssecurity);
         let signature_uri = normalize_api_signature_uri(base_url, api_url)?;
+
+        let json = serde_json::to_string(params)?;
         let encrypted_params = generate_encrypted_params(
             &signature_uri,
             "POST",
             &ssecurity64,
-            vec![("data".to_string(), params.to_string())],
+            vec![("data".to_string(), json)],
         )?;
+
         let nonce64 = encrypted_params
             .iter()
             .find_map(|(key, value)| (key == "_nonce").then_some(value.as_str()))
@@ -85,7 +88,8 @@ impl Client {
             .map_err(|err| XiaomiError::Auth(format!("response body is not UTF-8: {err}")))?;
         let plaintext = decrypt_response_payload(&ssecurity64, &nonce64, body)?;
 
-        let response: XiaomiHomeResponse<T> = XiaomiHomeResponse::from_json(plaintext.as_str())?;
+        let response: XiaomiHomeResponse<TResponse> =
+            XiaomiHomeResponse::from_json(plaintext.as_str())?;
         if response.code != 0 {
             let error = XiaomiError::Api(response.message);
 

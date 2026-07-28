@@ -1,5 +1,6 @@
 use crate::Client;
-use crate::home::XiaomiHomeResponse;
+use crate::home::utils::get_xiaomi_home_api_url;
+use crate::home::{XIAOMI_HOME_CORE_BASE_API, XiaomiHomeResponse};
 use serde::{Deserialize, Serialize};
 
 const GET_DEVICES_PATH: &str = "/home/device_list_page";
@@ -78,8 +79,6 @@ impl Client {
         &self,
         request: &GetDevicesRequest,
     ) -> crate::Result<XiaomiHomeResponse<GetDeviceResponse>> {
-        let json = serde_json::to_string(request)?;
-
         let mut headers = self.get_default_headers();
         headers.insert(
             "miot-request-page".to_string(),
@@ -88,9 +87,9 @@ impl Client {
 
         let response: XiaomiHomeResponse<GetDeviceResponse> = self
             .home_request(
-                super::get_xiaomi_home_api_url(self.region.as_str()).as_str(),
+                get_xiaomi_home_api_url(XIAOMI_HOME_CORE_BASE_API, self.region.as_str()).as_str(),
                 GET_DEVICES_PATH,
-                json.as_str(),
+                &request,
                 &headers,
             )
             .await?;
