@@ -78,7 +78,9 @@ pub struct WeightDataRecord {
 
 #[derive(Debug, Deserialize)]
 pub struct WeightMeasurement {
-    pub idx: String,
+    #[serde(rename = "idx")]
+    pub index: String,
+
     pub miid: String,
     pub duid: String,
 
@@ -92,35 +94,83 @@ pub struct WeightMeasurement {
 
     pub status: String,
     pub time: String,
-    pub bfp: Option<f64>,
-    pub slm: Option<f64>,
-    pub bwp: Option<f64>,
-    pub bmc: Option<f64>,
-    pub vfl: Option<String>,
-    pub pp: Option<f64>,
-    pub smm: Option<f64>,
+
+    #[serde(rename = "bfp")]
+    pub body_fat: Option<f64>,
+
+    #[serde(rename = "slm")]
+    pub muscle_mass: Option<f64>,
+
+    #[serde(rename = "bwp")]
+    pub body_water: Option<f64>,
+
+    #[serde(rename = "bmc")]
+    pub bone_mass: Option<f64>,
+
+    #[serde(rename = "vfl")]
+    pub visceral_fat: Option<String>,
+
+    #[serde(rename = "pp")]
+    pub protein_percent: Option<f64>,
+
+    #[serde(rename = "smm")]
+    pub skeletal_muscle_mass: Option<f64>,
+
     pub bmi: Option<f64>,
-    pub swt: Option<f64>,
-    pub mc: Option<f64>,
-    pub wc: Option<f64>,
-    pub fc: Option<f64>,
-    pub whr: Option<f64>,
-    pub bmr: Option<String>,
-    pub bt: Option<String>,
-    pub ma: Option<String>,
-    pub sbc: Option<String>,
-    pub slp: Option<f64>,
-    pub bmcp: Option<f64>,
-    pub bfm: Option<f64>,
-    pub ffm: Option<f64>,
-    pub bwm: Option<f64>,
-    pub pm: Option<f64>,
+
+    #[serde(rename = "swt")]
+    pub ideal_weight: Option<f64>,
+
+    #[serde(rename = "mc")]
+    pub muscle_correction: Option<f64>,
+
+    #[serde(rename = "wc")]
+    pub weight_correction: Option<f64>,
+
+    #[serde(rename = "fc")]
+    pub fat_correction: Option<f64>,
+
+    #[serde(rename = "whr")]
+    pub waist_hip_ratio: Option<f64>,
+
+    #[serde(rename = "bmr")]
+    pub basal_metabolic_rate: Option<String>,
+
+    #[serde(rename = "bt")]
+    pub body_type: Option<String>,
+
+    #[serde(rename = "ma")]
+    pub metabolic_age: Option<String>,
+
+    #[serde(rename = "sbc")]
+    pub body_score: Option<String>,
+
+    #[serde(rename = "slp")]
+    pub muscle_percent: Option<f64>,
+
+    #[serde(rename = "bmcp")]
+    pub bone_mass_percentage: Option<f64>,
+
+    #[serde(rename = "bfm")]
+    pub fat_mass: Option<f64>,
+
+    #[serde(rename = "ffm")]
+    pub lean_body_mass: Option<f64>,
+
+    #[serde(rename = "bwm")]
+    pub body_water_mass: Option<f64>,
+
+    #[serde(rename = "pm")]
+    pub protein_mass: Option<f64>,
 
     #[serde(rename = "bodyRes")]
     pub body_res: Option<f64>,
 
     #[serde(rename = "bodyRes2")]
     pub body_res2: Option<f64>,
+
+    #[serde(rename = "reportFrom")]
+    pub report_from: Option<String>,
 
     pub user: WeightMeasurementUser,
 }
