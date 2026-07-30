@@ -1,5 +1,10 @@
 [workspace]
-members = ["xiaomi-client", "xiaomi-scale-mcp", "xiaomi-encryption-cli"]
+members = [
+    "xiaomi-client",
+    "xiaomi-scale-mcp",
+    "xiaomi-encryption-cli",
+    "xiaomi-client-cli",
+]
 resolver = "3"
 
 [profile.release]
