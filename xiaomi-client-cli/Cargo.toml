@@ -1,0 +1,11 @@
+[package]
+name = "xiaomi-client-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.103"
+clap = { version = "4.5.50", features = ["derive"] }
+rpassword = "7.4.0"
+tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread"] }
+xiaomi-client = { path = "../xiaomi-client" }
