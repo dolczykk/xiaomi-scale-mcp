@@ -4,7 +4,7 @@ use chrono::{Datelike, Local, TimeZone};
 use rand::RngExt;
 use url::{Url, form_urlencoded::Serializer};
 
-use crate::{LOGIN_PREFIX, Result, errors::XiaomiError};
+use crate::{auth::LOGIN_PREFIX, base::Result, errors::XiaomiError};
 
 pub async fn read_login_response(response: reqwest::Response) -> Result<Vec<u8>> {
     strip_login_prefix(&response.bytes().await?)

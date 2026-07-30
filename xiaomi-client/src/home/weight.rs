@@ -1,6 +1,6 @@
+use crate::base::{Client, Result};
 use crate::home::utils::get_xiaomi_home_api_url;
 use crate::home::{XIAOMI_HOME_BASE_API, XiaomiHomeResponse};
-use crate::{Client, Result};
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
 

@@ -4,13 +4,14 @@ use reqwest::header::{CONTENT_TYPE, COOKIE, LOCATION};
 use serde::Deserialize;
 use url::Url;
 
-use crate::{
-    Client, OAUTH2_AUTHORIZE_URL, Result, SERVICE_LOGIN_AUTH2_URL, SERVICE_LOGIN_URL,
-    auth::{
-        LoginChallenge, LoginV1Response, LoginV2Outcome, LoginV2Response, PendingAuth,
-        parse_login_v2_outcome, parse_login_v2_response,
-    },
+use super::{
+    LoginChallenge, LoginV1Response, LoginV2Outcome, LoginV2Response, OAUTH2_AUTHORIZE_URL,
+    PendingAuth, SERVICE_LOGIN_AUTH2_URL, SERVICE_LOGIN_URL,
     cookies::{find_cookie, parse_extension_ssecurity},
+    parse_login_v2_outcome, parse_login_v2_response,
+};
+use crate::{
+    base::{Client, Result},
     errors::XiaomiError,
     utils::{encode_form, read_login_response},
 };

@@ -1,4 +1,4 @@
-use crate::Client;
+use crate::base::{Client, Result};
 use crate::encryption::{decrypt_response_payload, generate_encrypted_params};
 use crate::errors::XiaomiError;
 use crate::utils::{encode_form, normalize_api_signature_uri};
@@ -22,11 +22,11 @@ const XIAOMI_HOME_CORE_BASE_API: &str = "https://{}.core.api.io.mi.com/app/v2";
 pub struct XiaomiHomeResponse<T: DeserializeOwned> {
     pub code: i32,
     pub message: String,
-    pub result: Box<T>,
+    pub result: T,
 }
 
 impl<T: DeserializeOwned> XiaomiHomeResponse<T> {
-    fn from_json(json: &str) -> crate::Result<Self> {
+    fn from_json(json: &str) -> Result<Self> {
         let response: XiaomiHomeResponse<T> = serde_json::from_str(json)?;
 
         Ok(response)
@@ -40,7 +40,7 @@ impl Client {
         api_url: &str,
         params: &TRequest,
         headers: &HashMap<String, String>,
-    ) -> crate::Result<XiaomiHomeResponse<TResponse>> {
+    ) -> Result<XiaomiHomeResponse<TResponse>> {
         let ssecurity64 = STANDARD.encode(&self.ssecurity);
         let signature_uri = normalize_api_signature_uri(base_url, api_url)?;
 

@@ -1,4 +1,4 @@
-use crate::Client;
+use crate::base::{Client, Result};
 use crate::home::utils::get_xiaomi_home_api_url;
 use crate::home::{XIAOMI_HOME_CORE_BASE_API, XiaomiHomeResponse};
 use serde::{Deserialize, Serialize};
@@ -78,7 +78,7 @@ impl Client {
     pub async fn get_devices(
         &self,
         request: &GetDevicesRequest,
-    ) -> crate::Result<XiaomiHomeResponse<GetDeviceResponse>> {
+    ) -> Result<XiaomiHomeResponse<GetDeviceResponse>> {
         let mut headers = self.get_default_headers();
         headers.insert(
             "miot-request-page".to_string(),

@@ -1,6 +1,15 @@
 use serde::Deserialize;
 
-use crate::{Result, errors::XiaomiError};
+use crate::{base::Result, errors::XiaomiError};
+
+mod cookies;
+mod login;
+
+pub(crate) const LOGIN_PREFIX: &str = "&&&START&&&";
+pub(crate) const SERVICE_LOGIN_URL: &str = "https://account.xiaomi.com/pass/serviceLogin";
+pub(crate) const SERVICE_LOGIN_AUTH2_URL: &str =
+    "https://account.xiaomi.com/pass/serviceLoginAuth2";
+pub(crate) const OAUTH2_AUTHORIZE_URL: &str = "https://account.xiaomi.com/oauth2/authorize";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoginChallenge {

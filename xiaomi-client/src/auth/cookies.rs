@@ -1,4 +1,4 @@
-use crate::{Result, errors::XiaomiError};
+use crate::{base::Result, errors::XiaomiError};
 use reqwest::header::{HeaderMap, SET_COOKIE};
 use serde::Deserialize;
 

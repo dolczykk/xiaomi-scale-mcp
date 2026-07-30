@@ -8,12 +8,13 @@ use rand::RngExt;
 use sha1::Digest as Sha1Digest;
 use sha1::Sha1;
 
-use crate::{Result, errors::XiaomiError};
+use crate::{base::Result, errors::XiaomiError};
 
 pub fn generate_nonce() -> Vec<u8> {
     let mut nonce = Vec::with_capacity(16);
     nonce.extend_from_slice(&rand::rng().random::<i64>().to_be_bytes());
     nonce.extend_from_slice(&minimal_be_bytes(current_millis() / 60_000));
+
     nonce
 }
 
@@ -28,6 +29,7 @@ pub fn signed_nonce(ssecurity: &[u8], nonce: &[u8]) -> Vec<u8> {
     let mut hasher = Sha256::new();
     hasher.update(ssecurity);
     hasher.update(nonce);
+
     hasher.finalize().to_vec()
 }
 
@@ -153,6 +155,7 @@ pub fn decode_response_bytes(decrypted: &[u8]) -> Result<String> {
                 .map_err(|gzip_error| XiaomiError::Auth(format!(
                     "decrypted response was neither UTF-8 nor gzip-compressed UTF-8: {utf8_error}; gzip error: {gzip_error}"
                 )))?;
+
             Ok(plaintext)
         }
     }
@@ -179,6 +182,7 @@ fn current_millis() -> u128 {
     let duration = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("system clock before unix epoch");
+
     u128::from(duration.as_secs()) * 1000
         + u128::from(duration.subsec_nanos() + 500_000) / 1_000_000
 }
@@ -190,6 +194,7 @@ fn minimal_be_bytes(value: u128) -> Vec<u8> {
 
     let bit_len = u128::BITS - value.leading_zeros();
     let byte_len = bit_len.div_ceil(8) as usize;
+
     value.to_be_bytes()[u128::BITS as usize / 8 - byte_len..].to_vec()
 }
 
