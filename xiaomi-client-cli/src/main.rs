@@ -4,9 +4,7 @@ mod prompt;
 use clap::Parser;
 
 #[derive(Debug, Parser)]
-#[command(
-    version,
-)]
+#[command(version)]
 struct Cli;
 
 #[tokio::main]
