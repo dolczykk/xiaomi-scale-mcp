@@ -67,13 +67,17 @@ pub fn local_timezone_name() -> String {
 }
 
 pub fn local_timezone_offset() -> String {
-    let offset_seconds = Local::now().offset().local_minus_utc();
+    let offset_seconds = local_timezone_offset_seconds();
     let sign = if offset_seconds >= 0 { '+' } else { '-' };
     let offset_seconds = offset_seconds.abs();
     let hours = offset_seconds / 3600;
     let minutes = offset_seconds % 3600 / 60;
 
     format!("{sign}{hours:02}:{minutes:02}")
+}
+
+pub fn local_timezone_offset_seconds() -> i32 {
+    Local::now().offset().local_minus_utc()
 }
 
 pub fn is_daylight_saving_time() -> bool {
