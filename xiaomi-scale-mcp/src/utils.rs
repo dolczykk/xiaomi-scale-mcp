@@ -2,12 +2,7 @@ use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub(crate) fn profile_id(device_id: &str, account_id: &str) -> String {
-    let mut profile_id = String::new();
-    profile_id.push_str(device_id);
-    profile_id.push(':');
-    profile_id.push_str(account_id);
-
-    profile_id
+    format!("{device_id}:{account_id}")
 }
 
 pub(crate) fn current_unix_millis() -> Result<i64, String> {
@@ -22,13 +17,9 @@ pub(crate) fn parse_required<T>(value: &str, field: &str) -> Result<T, String>
 where
     T: FromStr,
 {
-    value.parse().map_err(|_| {
-        let mut message = String::new();
-        message.push_str("invalid ");
-        message.push_str(field);
-        message.push_str(" returned by Xiaomi");
-        message
-    })
+    value
+        .parse()
+        .map_err(|_| format!("invalid {field} returned by Xiaomi"))
 }
 
 pub(crate) fn parse_optional<T>(value: Option<&str>, field: &str) -> Result<Option<T>, String>
