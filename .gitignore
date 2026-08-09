@@ -35,3 +35,5 @@ examples/test_*.rs
 
 .DS_Store
 /data/
+/config.toml
+/.env
