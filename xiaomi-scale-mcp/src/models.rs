@@ -18,7 +18,7 @@ pub struct MCPHistoricalWeightsRequest {
     pub page_size: Option<u32>,
 }
 
-#[derive(Debug, Clone, serde::Serialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
 pub struct MCPWeightProfile {
     pub profile_id: String,
     pub name: String,
@@ -29,7 +29,7 @@ pub struct MCPWeightProfile {
     pub last_weight_update_time_ms: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
 pub struct MCPWeightResult {
     pub profile_id: String,
     pub user_name: String,

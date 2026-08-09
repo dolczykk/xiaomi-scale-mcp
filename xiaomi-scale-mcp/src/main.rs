@@ -1,3 +1,4 @@
+mod dal;
 mod models;
 mod state;
 mod tools;
@@ -18,7 +19,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
     dotenv().ok();
     flexi_logger::Logger::try_with_env_or_str("info")?.start()?;
 
-    let state = Arc::new(State::new());
+    let state = Arc::new(State::new().await?);
 
     let config = StreamableHttpServerConfig::default()
         .with_legacy_session_mode(false)
