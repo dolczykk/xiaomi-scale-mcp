@@ -1,5 +1,3 @@
-use std::env;
-
 use anyhow::{Context, bail};
 use serde::{Deserialize, Serialize};
 use tokio::sync::OnceCell;
@@ -9,6 +7,7 @@ use xiaomi_client::home::devices::{DeviceItem, GetDevicesRequest};
 use xiaomi_client::home::weight::{WeightDataRecord, WeightUserDataRequest};
 use xiaomi_client::utils::local_timezone_offset_seconds;
 
+use crate::config::XiaomiConfig;
 use crate::dal::{CacheDal, CacheEntry};
 use crate::models::{MCPWeightProfile, MCPWeightResult};
 use crate::utils::{parse_optional, parse_required, profile_id};
@@ -40,32 +39,34 @@ pub struct WeightRepository {
     cache: CacheDal,
     xiaomi_user_id: String,
     token: String,
+    sid: Option<String>,
+    device_id: Option<String>,
+    region: Option<String>,
     client: OnceCell<Client>,
 }
 
 impl WeightRepository {
-    pub fn from_environment(cache: CacheDal) -> anyhow::Result<Self> {
-        let token = env::var("XIAOMI_TOKEN").context("XIAOMI_TOKEN is not set")?;
-        Self::new(cache, token)
-    }
-
-    fn new(cache: CacheDal, token: String) -> anyhow::Result<Self> {
+    pub fn from_config(cache: CacheDal, config: XiaomiConfig) -> anyhow::Result<Self> {
+        let token = config.token;
         let token = token.trim();
         if token.is_empty() {
-            bail!("XIAOMI_TOKEN is empty");
+            bail!("xiaomi.token is empty");
         }
 
         let (xiaomi_user_id, pass_token) = token
             .split_once(':')
-            .context("XIAOMI_TOKEN must use the userId:passToken format")?;
+            .context("xiaomi.token must use the userId:passToken format")?;
         if xiaomi_user_id.is_empty() || pass_token.is_empty() {
-            bail!("XIAOMI_TOKEN must contain a non-empty user ID and pass token");
+            bail!("xiaomi.token must contain a non-empty user ID and pass token");
         }
 
         Ok(Self {
             cache,
             xiaomi_user_id: xiaomi_user_id.to_string(),
             token: token.to_string(),
+            sid: config.sid,
+            device_id: config.device_id,
+            region: config.region,
             client: OnceCell::new(),
         })
     }
@@ -276,14 +277,14 @@ impl WeightRepository {
         self.client
             .get_or_try_init(|| async {
                 let mut client = Client::new().context("failed to initialize Xiaomi client")?;
-                if let Ok(sid) = env::var("XIAOMI_SID") {
-                    client = client.with_sid(sid);
+                if let Some(sid) = &self.sid {
+                    client = client.with_sid(sid.clone());
                 }
-                if let Ok(device_id) = env::var("XIAOMI_DEVICE_ID") {
-                    client = client.with_device_id(device_id);
+                if let Some(device_id) = &self.device_id {
+                    client = client.with_device_id(device_id.clone());
                 }
-                if let Ok(region) = env::var("XIAOMI_REGION") {
-                    client = client.with_region(region);
+                if let Some(region) = &self.region {
+                    client = client.with_region(region.clone());
                 }
 
                 log::info!("Authenticating with Xiaomi token");
@@ -374,13 +375,22 @@ fn unknown_profile_error(profile_id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{CACHE_TTL_MS, CacheEntry, WeightRepository, now_ms, weight_result};
+    use crate::config::XiaomiConfig;
     use crate::dal::CacheDal;
     use crate::models::MCPWeightResult;
     use xiaomi_client::home::weight::{WeightDataRecord, WeightMeasurement, WeightMeasurementUser};
 
     fn repository(cache: CacheDal, user_id: &str) -> WeightRepository {
-        let token = format!("{user_id}:pass-token");
-        WeightRepository::new(cache, token).unwrap()
+        WeightRepository::from_config(
+            cache,
+            XiaomiConfig {
+                token: format!("{user_id}:pass-token"),
+                sid: None,
+                device_id: None,
+                region: None,
+            },
+        )
+        .unwrap()
     }
 
     fn measurement() -> MCPWeightResult {

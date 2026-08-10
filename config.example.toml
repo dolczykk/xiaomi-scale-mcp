@@ -1,0 +1,10 @@
+[server]
+# Bind to localhost by default. Use an explicit trusted address only when needed.
+bind_address = "127.0.0.1:8080"
+authorization_token = ""
+
+[xiaomi]
+token = ""
+sid = "xiaomiio"
+device_id = ""
+region = "de"
