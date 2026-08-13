@@ -58,7 +58,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
         Arc::clone(&state),
         credentials,
         app_config.xiaomi.clone(),
-    ).context("failed to start Xiaomi authentication console")?;
+    )
+    .context("failed to start Xiaomi authentication console")?;
 
     log::info!("Server listening on {}", listener.local_addr()?);
 

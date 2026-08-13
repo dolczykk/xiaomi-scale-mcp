@@ -39,7 +39,7 @@ impl State {
             .await
             .context("Xiaomi credential task failed")??
             .context("Xiaomi account is not authorized; enter auth in the server console")?;
-        
+
         let created = Arc::new(WeightRepository::from_token(
             self.cache.clone(),
             self.xiaomi.clone(),

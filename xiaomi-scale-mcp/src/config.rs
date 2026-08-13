@@ -32,8 +32,7 @@ pub(crate) struct XiaomiConfig {
 
 impl XiaomiConfig {
     pub(crate) fn client(&self) -> anyhow::Result<Client> {
-        let mut client = Client::new()
-            .context("failed to initialize Xiaomi client")?;
+        let mut client = Client::new().context("failed to initialize Xiaomi client")?;
 
         if let Some(sid) = non_empty(&self.sid) {
             client = client.with_sid(sid.to_string());
