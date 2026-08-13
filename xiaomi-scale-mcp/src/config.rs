@@ -2,6 +2,7 @@ use std::{env, fs, path::PathBuf};
 
 use anyhow::{Context, bail};
 use serde::Deserialize;
+use xiaomi_client::Client;
 
 const DEFAULT_CONFIG_PATH: &str = "config.toml";
 const CONFIG_PATH_ENV: &str = "MCP_CONFIG_PATH";
@@ -19,12 +20,32 @@ pub(crate) struct ServerConfig {
     pub(crate) authorization_token: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct XiaomiConfig {
-    pub(crate) token: String,
+    #[serde(default, rename = "token")]
+    legacy_token: Option<String>,
     pub(crate) sid: Option<String>,
     pub(crate) device_id: Option<String>,
     pub(crate) region: Option<String>,
+}
+
+impl XiaomiConfig {
+    pub(crate) fn client(&self) -> anyhow::Result<Client> {
+        let mut client = Client::new().context("failed to initialize Xiaomi client")?;
+
+        if let Some(sid) = non_empty(&self.sid) {
+            client = client.with_sid(sid.to_string());
+        }
+        if let Some(device_id) = non_empty(&self.device_id) {
+            client = client.with_device_id(device_id.to_string());
+        }
+        if let Some(region) = non_empty(&self.region) {
+            client = client.with_region(region.to_string());
+        }
+
+        Ok(client)
+    }
 }
 
 impl Config {
@@ -47,13 +68,10 @@ impl Config {
             bail!("server.bind_address must not be empty");
         }
 
-        let token = self.xiaomi.token.trim();
-        let (user_id, pass_token) = token
-            .split_once(':')
-            .context("xiaomi.token must use the userId:passToken format")?;
-
-        if user_id.is_empty() || pass_token.is_empty() {
-            bail!("xiaomi.token must contain a non-empty user ID and pass token");
+        if self.xiaomi.legacy_token.is_some() {
+            bail!(
+                "xiaomi.token is no longer supported; remove it from config.toml and enter auth in the server console"
+            );
         }
 
         Ok(())
@@ -70,6 +88,13 @@ fn default_bind_address() -> String {
     "127.0.0.1:8080".to_string()
 }
 
+fn non_empty(value: &Option<String>) -> Option<&str> {
+    value
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
 #[cfg(test)]
 mod tests {
     use super::Config;
@@ -82,7 +107,6 @@ mod tests {
                 authorization_token = "mcp-secret"
 
                 [xiaomi]
-                token = "123:pass-token"
                 region = "de"
             "#,
         )
@@ -101,7 +125,6 @@ mod tests {
                 authorization_token = "  "
 
                 [xiaomi]
-                token = "123:pass-token"
             "#,
         )
         .unwrap();
@@ -110,14 +133,14 @@ mod tests {
     }
 
     #[test]
-    fn rejects_malformed_xiaomi_token() {
+    fn rejects_legacy_xiaomi_token() {
         let config: Config = toml::from_str(
             r#"
                 [server]
                 authorization_token = "mcp-secret"
 
                 [xiaomi]
-                token = "malformed"
+                token = "123:pass-token"
             "#,
         )
         .unwrap();
