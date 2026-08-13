@@ -1,4 +1,4 @@
-use anyhow::{Context, bail};
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use tokio::sync::OnceCell;
 use xiaomi_client::Client;
@@ -6,8 +6,10 @@ use xiaomi_client::home::account::{GetWeightAccountsRequest, WeightAccount};
 use xiaomi_client::home::devices::{DeviceItem, GetDevicesRequest};
 use xiaomi_client::home::weight::{WeightDataRecord, WeightUserDataRequest};
 use xiaomi_client::utils::local_timezone_offset_seconds;
+use zeroize::Zeroizing;
 
 use crate::config::XiaomiConfig;
+use crate::credentials::validate_token;
 use crate::dal::{CacheDal, CacheEntry};
 use crate::models::{MCPWeightProfile, MCPWeightResult};
 use crate::utils::{parse_optional, parse_required, profile_id};
@@ -38,35 +40,31 @@ struct WeightProfileContext {
 pub struct WeightRepository {
     cache: CacheDal,
     xiaomi_user_id: String,
-    token: String,
-    sid: Option<String>,
-    device_id: Option<String>,
-    region: Option<String>,
+    token: Zeroizing<String>,
+    xiaomi: XiaomiConfig,
     client: OnceCell<Client>,
 }
 
 impl WeightRepository {
-    pub fn from_config(cache: CacheDal, config: XiaomiConfig) -> anyhow::Result<Self> {
-        let token = config.token;
+    pub fn from_token(
+        cache: CacheDal,
+        xiaomi: XiaomiConfig,
+        token: String,
+    ) -> anyhow::Result<Self> {
+        let token = Zeroizing::new(token);
         let token = token.trim();
-        if token.is_empty() {
-            bail!("xiaomi.token is empty");
-        }
+        validate_token(token)?;
 
         let (xiaomi_user_id, pass_token) = token
             .split_once(':')
-            .context("xiaomi.token must use the userId:passToken format")?;
-        if xiaomi_user_id.is_empty() || pass_token.is_empty() {
-            bail!("xiaomi.token must contain a non-empty user ID and pass token");
-        }
+            .context("validated Xiaomi token is missing a separator")?;
+        debug_assert!(!pass_token.is_empty());
 
         Ok(Self {
             cache,
             xiaomi_user_id: xiaomi_user_id.to_string(),
-            token: token.to_string(),
-            sid: config.sid,
-            device_id: config.device_id,
-            region: config.region,
+            token: Zeroizing::new(token.to_string()),
+            xiaomi,
             client: OnceCell::new(),
         })
     }
@@ -276,16 +274,7 @@ impl WeightRepository {
     async fn client(&self) -> anyhow::Result<&Client> {
         self.client
             .get_or_try_init(|| async {
-                let mut client = Client::new().context("failed to initialize Xiaomi client")?;
-                if let Some(sid) = &self.sid {
-                    client = client.with_sid(sid.clone());
-                }
-                if let Some(device_id) = &self.device_id {
-                    client = client.with_device_id(device_id.clone());
-                }
-                if let Some(region) = &self.region {
-                    client = client.with_region(region.clone());
-                }
+                let mut client = self.xiaomi.client()?;
 
                 log::info!("Authenticating with Xiaomi token");
                 client
@@ -381,14 +370,10 @@ mod tests {
     use xiaomi_client::home::weight::{WeightDataRecord, WeightMeasurement, WeightMeasurementUser};
 
     fn repository(cache: CacheDal, user_id: &str) -> WeightRepository {
-        WeightRepository::from_config(
+        WeightRepository::from_token(
             cache,
-            XiaomiConfig {
-                token: format!("{user_id}:pass-token"),
-                sid: None,
-                device_id: None,
-                region: None,
-            },
+            XiaomiConfig::default(),
+            format!("{user_id}:pass-token"),
         )
         .unwrap()
     }
