@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "xiaomi-client",
+    "xiaomi-scale-mcp",
+]
+resolver = "3"
+
+[profile.release]
+opt-level = 2
