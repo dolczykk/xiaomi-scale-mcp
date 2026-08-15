@@ -1,0 +1,17 @@
+volumes:
+  data:
+services:
+  xiaomi-scale-mcp:
+    build: .
+    user: "${HOST_UID}:${HOST_GID}"
+    container_name: xiaomi-scale-mcp
+    restart: unless-stopped
+    network_mode: host
+    tty: true
+    stdin_open: true
+    environment:
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/${HOST_UID}/bus"
+    volumes:
+      - ./config.toml:/app/config.toml
+      - data:/app/data
+      - /run/user/${HOST_UID}/bus:/run/user/${HOST_UID}/bus
