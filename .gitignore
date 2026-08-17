@@ -27,6 +27,9 @@ pkg
 # webpage generated
 **/docs/**/*
 
+# keep hand-written Markdown documentation
+!**/docs/**/*.md
+
 # allow static images
 !**/docs/examples/images/**/*.jpg
 
