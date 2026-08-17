@@ -42,3 +42,65 @@ jobs:
           push: ${{ github.ref_type == 'tag' }}
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
+  binaries:
+    name: Build ${{ matrix.target }} binary
+    if: github.ref_type == 'tag'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - runner: macos-26
+            target: aarch64-apple-darwin
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Build release binary
+        run: cargo build --release --package xiaomi_scale_mcp
+      - name: Package release archive
+        shell: bash
+        run: |
+          package_name="xiaomi-scale-mcp-${{ matrix.target }}"
+          mkdir -p "dist/$package_name"
+          cp target/release/xiaomi_scale_mcp "dist/$package_name/"
+          cp README.md LICENSE config.example.toml "dist/$package_name/"
+          tar -C dist -czf "dist/$package_name.tar.gz" "$package_name"
+      - name: Upload release archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaomi-scale-mcp-${{ matrix.target }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+  release:
+    name: Publish GitHub Release
+    if: github.ref_type == 'tag'
+    needs: binaries
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download release archives
+        uses: actions/download-artifact@v5
+        with:
+          pattern: xiaomi-scale-mcp-*
+          path: dist
+          merge-multiple: true
+      - name: Generate checksums and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          shasum -a 256 *.tar.gz > SHA256SUMS
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" ./* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" ./* \
+              --generate-notes \
+              --title "$GITHUB_REF_NAME"
+          fi
