@@ -132,7 +132,7 @@ jobs:
           package_name="xiaomi-scale-mcp-${{ matrix.target }}"
           mkdir -p "dist/$package_name"
           cp target/release/xiaomi_scale_mcp "dist/$package_name/"
-          cp README.md LICENSE config.example.toml "dist/$package_name/"
+          cp config.example.toml "dist/$package_name/"
           tar -C dist -czf "dist/$package_name.tar.gz" "$package_name"
       - name: Upload release archive
         uses: actions/upload-artifact@v4
