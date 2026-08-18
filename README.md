@@ -31,9 +31,13 @@ flowchart LR
 
 ## Requirements
 
-- A current Rust toolchain with Cargo.
+- A current Rust toolchain with Cargo when building from source.
 - A Xiaomi account with a compatible scale visible in Xiaomi Home. The current discovery flow supports devices whose model starts with `yunmai.scales.`.
 - A working operating-system credential store. On Linux, this commonly means a Secret Service-compatible keyring.
+
+## Install a published release
+
+For prebuilt GitHub Release binaries or the published multi-architecture Docker image, follow the [setup guide](docs/setup.md).
 
 ## Quick start
 
@@ -156,6 +160,12 @@ For help, open a [GitHub issue](https://github.com/dolczykk/xiaomi-scale-mcp/iss
 ## Project status
 
 This is an early `0.1.x` project. Xiaomi Home endpoints and the MCP-facing interface may evolve, so pin revisions when integrating it into an automated workflow.
+
+## Acknowledgements
+
+- [SmartScaleConnect](https://github.com/AlexxIT/SmartScaleConnect/tree/master) for insights into the initial authentication flow.
+- [Xiaomi Cloud Tokens Extractor](https://github.com/PiotrMachowski/Xiaomi-cloud-tokens-extractor/tree/master) for request encryption and response decryption references.
+- And ny own reverse engineering of the Xiaomi Home API ;)
 
 ## License
 
