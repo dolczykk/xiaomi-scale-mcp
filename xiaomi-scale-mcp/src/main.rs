@@ -1,12 +1,14 @@
+mod app;
 mod auth;
+mod cache;
 mod config;
 mod console;
 mod credentials;
-mod dal;
-mod models;
-mod state;
-mod tools;
-mod utils;
+mod session;
+#[cfg(test)]
+mod test_support;
+mod time;
+mod weights;
 
 use std::sync::Arc;
 
@@ -16,11 +18,12 @@ use rmcp::transport::streamable_http_server::session::local::LocalSessionManager
 use rmcp::transport::{StreamableHttpServerConfig, StreamableHttpService};
 use tokio::net::TcpListener;
 
+use crate::app::App;
 use crate::auth::require_bearer_token;
 use crate::config::Config;
-use crate::console::spawn_console;
+use crate::console::spawn_console_thread;
 use crate::credentials::{CredentialStore, SystemCredentialStore};
-use crate::state::State;
+use crate::weights::McpWeightTools;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<(), anyhow::Error> {
@@ -28,7 +31,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
     let app_config = Config::load()?;
     let credentials: Arc<dyn CredentialStore> = Arc::new(SystemCredentialStore);
-    let state = Arc::new(State::new(&app_config, Arc::clone(&credentials)).await?);
+    let runtime = Arc::new(App::new(&app_config, Arc::clone(&credentials)).await?);
 
     let transport_config = StreamableHttpServerConfig::default()
         .with_legacy_session_mode(false)
@@ -36,9 +39,9 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
     let mcp_service = StreamableHttpService::new(
         {
-            let state = Arc::clone(&state);
+            let weights = runtime.weights();
 
-            move || Ok(crate::tools::Weight::new(Arc::clone(&state)))
+            move || Ok(McpWeightTools::new(weights.clone()))
         },
         LocalSessionManager::default().into(),
         transport_config,
@@ -52,14 +55,11 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 authorization_token,
                 require_bearer_token,
             ));
+
     let listener = TcpListener::bind(&app_config.server.bind_address).await?;
-    let _console_thread = spawn_console(
-        tokio::runtime::Handle::current(),
-        Arc::clone(&state),
-        credentials,
-        app_config.xiaomi.clone(),
-    )
-    .context("failed to start Xiaomi authentication console")?;
+    let _console_thread =
+        spawn_console_thread(tokio::runtime::Handle::current(), runtime.xiaomi_session())
+            .context("failed to start Xiaomi authentication console")?;
 
     log::info!("Server listening on {}", listener.local_addr()?);
 
