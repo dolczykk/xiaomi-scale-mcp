@@ -3,12 +3,14 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use surrealdb::Surreal;
 use surrealdb::engine::local::{Db, Mem, SurrealKv};
-use surrealdb::types::{RecordId, SurrealValue};
+use surrealdb::types::{Array, RecordId, SurrealValue};
 
-use super::consts::{
+use crate::time::current_unix_millis;
+
+use super::{
     CACHE_DATABASE, CACHE_NAMESPACE, CACHE_PATH, CACHE_RETENTION_MS, CACHE_SCHEMA,
+    PROFILE_CACHE_TABLE, WEIGHT_CACHE_TABLE,
 };
-use super::utils::{now_ms, profile_record_id, weight_record_id};
 
 #[derive(Debug, Clone, SurrealValue)]
 struct StoredCacheEntry {
@@ -59,11 +61,11 @@ pub(crate) struct CacheEntry<T> {
 }
 
 #[derive(Clone)]
-pub(crate) struct CacheDal {
+pub(crate) struct CacheStore {
     db: Surreal<Db>,
 }
 
-impl CacheDal {
+impl CacheStore {
     pub(crate) async fn open() -> anyhow::Result<Self> {
         match Self::open_disk().await {
             Ok(cache) => Ok(cache),
@@ -109,7 +111,7 @@ impl CacheDal {
             .context("cache schema contains an invalid statement")?;
 
         let cache = Self { db: database };
-        cache.cleanup_expired(now_ms()?).await?;
+        cache.cleanup_expired(current_unix_millis()?).await?;
 
         Ok(cache)
     }
@@ -143,7 +145,7 @@ impl CacheDal {
         deserialize_entry(stored.map(StoredCacheEntry::from))
     }
 
-    pub(crate) async fn save_profiles<T: Serialize + ?Sized>(
+    pub(crate) async fn save_profiles<T: Serialize + Sync + ?Sized>(
         &self,
         xiaomi_user_id: &str,
         profiles: &T,
@@ -181,7 +183,7 @@ impl CacheDal {
         deserialize_entry(stored.map(StoredCacheEntry::from))
     }
 
-    pub(crate) async fn save_weights<T: Serialize + ?Sized>(
+    pub(crate) async fn save_weights<T: Serialize + Sync + ?Sized>(
         &self,
         xiaomi_user_id: &str,
         cache_key: &str,
@@ -216,6 +218,17 @@ impl CacheDal {
     }
 }
 
+fn profile_record_id(xiaomi_user_id: &str) -> RecordId {
+    RecordId::new(PROFILE_CACHE_TABLE, xiaomi_user_id)
+}
+
+fn weight_record_id(xiaomi_user_id: &str, cache_key: &str) -> RecordId {
+    RecordId::new(
+        WEIGHT_CACHE_TABLE,
+        Array::from(vec![xiaomi_user_id.to_owned(), cache_key.to_owned()]),
+    )
+}
+
 fn deserialize_entry<T: DeserializeOwned>(
     stored: Option<StoredCacheEntry>,
 ) -> anyhow::Result<Option<CacheEntry<T>>> {
@@ -233,12 +246,12 @@ fn deserialize_entry<T: DeserializeOwned>(
 
 #[cfg(test)]
 mod tests {
-    use super::{CacheDal, ProfileCacheRecord, WeightCacheRecord};
-    use crate::dal::consts::{CACHE_RETENTION_MS, PROFILE_CACHE_TABLE, WEIGHT_CACHE_TABLE};
+    use super::{CacheStore, ProfileCacheRecord, WeightCacheRecord};
+    use crate::cache::{CACHE_RETENTION_MS, PROFILE_CACHE_TABLE, WEIGHT_CACHE_TABLE};
 
     #[tokio::test]
     async fn profile_cache_round_trips_and_is_partitioned_by_xiaomi_user() {
-        let cache = CacheDal::in_memory().await.unwrap();
+        let cache = CacheStore::in_memory().await.unwrap();
         let profiles = vec!["profile-1".to_string()];
 
         cache
@@ -263,7 +276,7 @@ mod tests {
 
     #[tokio::test]
     async fn weight_cache_round_trips_and_is_partitioned_by_xiaomi_user() {
-        let cache = CacheDal::in_memory().await.unwrap();
+        let cache = CacheStore::in_memory().await.unwrap();
         let measurements = vec!["measurement-1".to_string()];
 
         cache
@@ -294,7 +307,7 @@ mod tests {
 
     #[tokio::test]
     async fn repeated_profile_saves_update_one_record() {
-        let cache = CacheDal::in_memory().await.unwrap();
+        let cache = CacheStore::in_memory().await.unwrap();
 
         cache
             .save_profiles("xiaomi-user-1", &["profile-1"], 123_456)
@@ -319,7 +332,7 @@ mod tests {
 
     #[tokio::test]
     async fn repeated_weight_saves_update_one_record() {
-        let cache = CacheDal::in_memory().await.unwrap();
+        let cache = CacheStore::in_memory().await.unwrap();
 
         cache
             .save_weights(
@@ -356,7 +369,7 @@ mod tests {
 
     #[tokio::test]
     async fn cleanup_removes_records_older_than_retention() {
-        let cache = CacheDal::in_memory().await.unwrap();
+        let cache = CacheStore::in_memory().await.unwrap();
         let now_ms = 10 * CACHE_RETENTION_MS;
         let expired_at = now_ms - CACHE_RETENTION_MS - 1;
 

@@ -11,9 +11,7 @@ use xiaomi_client::auth::LoginChallenge;
 use xiaomi_client::errors::XiaomiError;
 use zeroize::Zeroizing;
 
-use crate::config::XiaomiConfig;
-use crate::credentials::CredentialStore;
-use crate::state::State;
+use crate::session::XiaomiSession;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ConsoleCommand {
@@ -38,27 +36,20 @@ impl FromStr for ConsoleCommand {
     }
 }
 
-pub(crate) fn spawn_console(
+pub(crate) fn spawn_console_thread(
     runtime: Handle,
-    state: Arc<State>,
-    credentials: Arc<dyn CredentialStore>,
-    xiaomi: XiaomiConfig,
+    session: Arc<XiaomiSession>,
 ) -> io::Result<JoinHandle<()>> {
     thread::Builder::new()
         .name("xiaomi-auth-console".to_string())
         .spawn(move || {
-            if let Err(error) = run_console(&runtime, &state, credentials.as_ref(), &xiaomi) {
+            if let Err(error) = run_console(&runtime, &session) {
                 log::error!("Xiaomi authentication console stopped: {error:#}");
             }
         })
 }
 
-fn run_console(
-    runtime: &Handle,
-    state: &State,
-    credentials: &dyn CredentialStore,
-    xiaomi: &XiaomiConfig,
-) -> anyhow::Result<()> {
+fn run_console(runtime: &Handle, session: &XiaomiSession) -> anyhow::Result<()> {
     println!("Xiaomi console ready. Enter help to list commands.");
 
     loop {
@@ -70,12 +61,12 @@ fn run_console(
 
         match command.parse::<ConsoleCommand>() {
             Ok(ConsoleCommand::Auth) => {
-                if let Err(error) = authenticate(runtime, state, credentials, xiaomi) {
+                if let Err(error) = authenticate(runtime, session) {
                     eprintln!("Authentication failed: {error:#}");
                 }
             }
-            Ok(ConsoleCommand::Status) => print_status(credentials),
-            Ok(ConsoleCommand::Logout) => logout(runtime, state, credentials)?,
+            Ok(ConsoleCommand::Status) => print_status(runtime, session),
+            Ok(ConsoleCommand::Logout) => logout(runtime, session)?,
             Ok(ConsoleCommand::Help) => print_help(),
             Err(error) if error.is_empty() => {}
             Err(error) => eprintln!("{error}. Enter help to list commands."),
@@ -83,12 +74,7 @@ fn run_console(
     }
 }
 
-fn authenticate(
-    runtime: &Handle,
-    state: &State,
-    credentials: &dyn CredentialStore,
-    xiaomi: &XiaomiConfig,
-) -> anyhow::Result<()> {
+fn authenticate(runtime: &Handle, session: &XiaomiSession) -> anyhow::Result<()> {
     let username = required_line("Xiaomi email, phone, or account ID")?;
     let password = Zeroizing::new(
         rpassword::prompt_password("Xiaomi password: ")
@@ -98,20 +84,19 @@ fn authenticate(
         bail!("Xiaomi password is required");
     }
 
-    let token = runtime.block_on(authenticate_client(xiaomi, &username, &password))?;
-    credentials.save_token(&token)?;
-    runtime.block_on(state.invalidate_repository());
+    let token = runtime.block_on(authenticate_client(session, &username, &password))?;
+    runtime.block_on(session.store_token(&token))?;
 
     println!("Xiaomi account authorization succeeded.");
     Ok(())
 }
 
 async fn authenticate_client(
-    xiaomi: &XiaomiConfig,
+    session: &XiaomiSession,
     username: &str,
     password: &str,
 ) -> anyhow::Result<Zeroizing<String>> {
-    let mut client = xiaomi.client()?;
+    let mut client = session.login_client()?;
 
     match client.login(username, password).await {
         Ok(()) => {}
@@ -186,19 +171,15 @@ async fn handle_login_challenge(
     }
 }
 
-fn print_status(credentials: &dyn CredentialStore) {
-    match credentials.has_token() {
+fn print_status(runtime: &Handle, session: &XiaomiSession) {
+    match runtime.block_on(session.has_token()) {
         Ok(true) => println!("Xiaomi credential is stored."),
         Ok(false) => println!("Xiaomi account is not authorized."),
         Err(error) => eprintln!("Unable to read Xiaomi credential status: {error:#}"),
     }
 }
 
-fn logout(
-    runtime: &Handle,
-    state: &State,
-    credentials: &dyn CredentialStore,
-) -> anyhow::Result<()> {
+fn logout(runtime: &Handle, session: &XiaomiSession) -> anyhow::Result<()> {
     let confirmation = prompt_line("Delete the stored Xiaomi credential? [y/N]")?;
     if !matches!(confirmation.to_ascii_lowercase().as_str(), "y" | "yes") {
         println!("Logout cancelled.");
@@ -206,8 +187,7 @@ fn logout(
         return Ok(());
     }
 
-    let deleted = credentials.delete_token()?;
-    runtime.block_on(state.invalidate_repository());
+    let deleted = runtime.block_on(session.logout())?;
 
     if deleted {
         println!("Stored Xiaomi credential deleted.");
