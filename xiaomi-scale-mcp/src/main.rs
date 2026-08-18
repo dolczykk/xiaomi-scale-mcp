@@ -5,8 +5,6 @@ mod config;
 mod console;
 mod credentials;
 mod session;
-#[cfg(test)]
-mod test_support;
 mod time;
 mod weights;
 

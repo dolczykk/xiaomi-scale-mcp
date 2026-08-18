@@ -23,8 +23,6 @@ pub(crate) struct ServerConfig {
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct XiaomiConfig {
-    #[serde(default, rename = "token")]
-    legacy_token: Option<String>,
     pub(crate) sid: Option<String>,
     pub(crate) device_id: Option<String>,
     pub(crate) region: Option<String>,
@@ -66,12 +64,6 @@ impl Config {
         }
         if self.server.bind_address.trim().is_empty() {
             bail!("server.bind_address must not be empty");
-        }
-
-        if self.xiaomi.legacy_token.is_some() {
-            bail!(
-                "xiaomi.token is no longer supported; remove it from config.toml and enter auth in the server console"
-            );
         }
 
         Ok(())
@@ -133,8 +125,8 @@ mod tests {
     }
 
     #[test]
-    fn rejects_legacy_xiaomi_token() {
-        let config: Config = toml::from_str(
+    fn rejects_legacy_xiaomi_token_field() {
+        let error = toml::from_str::<Config>(
             r#"
                 [server]
                 authorization_token = "mcp-secret"
@@ -143,8 +135,8 @@ mod tests {
                 token = "123:pass-token"
             "#,
         )
-        .unwrap();
+        .unwrap_err();
 
-        assert!(config.validate().is_err());
+        assert!(error.to_string().contains("unknown field `token`"));
     }
 }
