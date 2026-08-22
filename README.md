@@ -58,11 +58,10 @@ authorization_token = "random-token"
 
 [xiaomi]
 sid = "xiaomiio"
-device_id = ""
 region = "de"
 ```
 
-`authorization_token` is required. `sid`, `device_id`, and `region` are non-secret Xiaomi client settings; leave `device_id` empty to let the client generate one. For the available Xiaomi region values, see openHAB's [country server list](https://www.openhab.org/addons/bindings/miio/#country-servers).
+`authorization_token` is required. `sid` and `region` are optional, non-secret Xiaomi client settings. For the available Xiaomi region values, see openHAB's [country server list](https://www.openhab.org/addons/bindings/miio/#country-servers).
 
 Build and start the server:
 
