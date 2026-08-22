@@ -339,7 +339,7 @@ impl Client {
         &self,
         request: &WeightUserDataRequest,
     ) -> Result<XiaomiHomeResponse<Vec<WeightDataRecord>>> {
-        let mut headers = self.get_default_headers();
+        let mut headers = Self::default_headers();
         headers.insert("miot-request-page".to_string(), "none".to_string());
         headers.insert("miot-request-model".to_string(), request.model.clone());
 
@@ -360,7 +360,7 @@ impl Client {
         request: &WeightIndexInfoRequest,
         model: &str,
     ) -> Result<XiaomiHomeResponse<WeightIndexInfoResponse>> {
-        let mut headers = self.get_default_headers();
+        let mut headers = Self::default_headers();
         headers.insert("miot-request-page".to_string(), "none".to_string());
         headers.insert("miot-request-model".to_string(), model.to_string());
 

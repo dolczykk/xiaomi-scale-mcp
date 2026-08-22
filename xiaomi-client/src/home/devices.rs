@@ -25,7 +25,7 @@ pub struct GetDevicesRequest {
 
 impl Default for GetDevicesRequest {
     fn default() -> Self {
-        GetDevicesRequest {
+        Self {
             ssid: String::from("<unknown ssid>"),
             bssid: String::from("02:00:00:00:00:00"),
             get_virtual_model: true,
@@ -73,13 +73,12 @@ pub struct DeviceItem {
     pub is_online: bool,
     pub spec_type: Option<String>,
 }
-
 impl Client {
     pub async fn get_devices(
         &self,
         request: &GetDevicesRequest,
     ) -> Result<XiaomiHomeResponse<GetDeviceResponse>> {
-        let mut headers = self.get_default_headers();
+        let mut headers = Self::default_headers();
         headers.insert(
             "miot-request-page".to_string(),
             "SmartHomeMainActivity".to_string(),

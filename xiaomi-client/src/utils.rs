@@ -109,7 +109,7 @@ pub(crate) mod serde_base64 {
     use base64::engine::general_purpose::STANDARD;
     use serde::{Deserialize, Deserializer};
 
-    pub(crate) fn deserialize<'de, D>(deserializer: D) -> std::result::Result<Vec<u8>, D::Error>
+    pub fn deserialize<'de, D>(deserializer: D) -> std::result::Result<Vec<u8>, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -117,7 +117,7 @@ pub(crate) mod serde_base64 {
         STANDARD.decode(encoded).map_err(serde::de::Error::custom)
     }
 
-    pub(crate) fn deserialize_optional<'de, D>(
+    pub fn deserialize_optional<'de, D>(
         deserializer: D,
     ) -> std::result::Result<Option<Vec<u8>>, D::Error>
     where

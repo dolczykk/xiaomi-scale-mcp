@@ -59,7 +59,7 @@ impl Client {
         request: &GetWeightAccountsRequest,
         model: &str,
     ) -> Result<XiaomiHomeResponse<Vec<WeightAccount>>> {
-        let mut headers = self.get_default_headers();
+        let mut headers = Self::default_headers();
         headers.insert("miot-request-page".to_string(), "none".to_string());
         headers.insert("miot-request-model".to_string(), model.to_string());
 

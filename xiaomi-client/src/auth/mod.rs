@@ -11,7 +11,7 @@ pub(crate) const SERVICE_LOGIN_AUTH2_URL: &str =
     "https://account.xiaomi.com/pass/serviceLoginAuth2";
 pub(crate) const OAUTH2_AUTHORIZE_URL: &str = "https://account.xiaomi.com/oauth2/authorize";
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct LoginChallenge {
     pub captcha: Option<Vec<u8>>,
     pub verify_phone: Option<String>,
@@ -19,7 +19,8 @@ pub struct LoginChallenge {
 }
 
 impl LoginChallenge {
-    pub fn captcha(captcha: Vec<u8>) -> Self {
+    #[must_use]
+    pub const fn captcha(captcha: Vec<u8>) -> Self {
         Self {
             captcha: Some(captcha),
             verify_phone: None,
@@ -27,7 +28,8 @@ impl LoginChallenge {
         }
     }
 
-    pub fn verification(verify_phone: Option<String>, verify_email: Option<String>) -> Self {
+    #[must_use]
+    pub const fn verification(verify_phone: Option<String>, verify_email: Option<String>) -> Self {
         Self {
             captcha: None,
             verify_phone,
@@ -36,7 +38,7 @@ impl LoginChallenge {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(crate) struct PendingAuth {
     pub username: String,
     pub password: String,
@@ -57,9 +59,22 @@ impl PendingAuth {
             captcha_code: None,
         }
     }
+
+    fn verification_details(&self) -> Result<(&str, &str)> {
+        let flag = self
+            .flag
+            .as_deref()
+            .ok_or_else(|| XiaomiError::invalid_login_step("verification not requested"))?;
+        let identity_session = self
+            .identity_session
+            .as_deref()
+            .ok_or_else(|| XiaomiError::invalid_login_step("verification not requested"))?;
+
+        Ok((flag, identity_session))
+    }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct LoginV1Response {
     pub qs: String,
 
@@ -84,14 +99,13 @@ pub struct LoginV2Response {
     pub location: String,
 }
 
-#[derive(Debug)]
 pub(crate) enum LoginV2Outcome {
     Success(LoginV2Response),
     Captcha(String),
     Notification(String),
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct LoginV2Envelope {
     code: Option<i64>,
@@ -137,11 +151,11 @@ pub fn parse_login_v2_response(body: &[u8]) -> Result<LoginV2Response> {
 }
 
 pub(crate) fn parse_login_v2_outcome(body: &[u8]) -> Result<LoginV2Outcome> {
-    let response = serde_json::from_slice::<LoginV2Envelope>(body)?;
+    let mut response = serde_json::from_slice::<LoginV2Envelope>(body)?;
 
     if let Some(captcha_url) = response
         .captcha_url
-        .clone()
+        .take()
         .filter(|value| !value.is_empty())
     {
         let outcome = LoginV2Outcome::Captcha(captcha_url);
@@ -151,7 +165,7 @@ pub(crate) fn parse_login_v2_outcome(body: &[u8]) -> Result<LoginV2Outcome> {
 
     if let Some(notification_url) = response
         .notification_url
-        .clone()
+        .take()
         .filter(|value| !value.is_empty())
     {
         let outcome = LoginV2Outcome::Notification(notification_url);
@@ -159,21 +173,23 @@ pub(crate) fn parse_login_v2_outcome(body: &[u8]) -> Result<LoginV2Outcome> {
         return Ok(outcome);
     }
 
-    if let (Some(user_id), Some(ssecurity), Some(pass_token), Some(location)) = (
-        response.user_id,
-        response.ssecurity.clone(),
-        response.pass_token.clone(),
-        response.location.clone(),
-    ) && !location.is_empty()
-    {
-        let outcome = LoginV2Response {
-            user_id,
-            ssecurity,
-            pass_token,
-            location,
-        };
-
-        return Ok(LoginV2Outcome::Success(outcome));
+    if let Some(location) = response.location.take() {
+        if location.is_empty() {
+            response.location = Some(location);
+        } else if let (Some(user_id), Some(ssecurity), Some(pass_token)) = (
+            response.user_id.take(),
+            response.ssecurity.take(),
+            response.pass_token.take(),
+        ) {
+            return Ok(LoginV2Outcome::Success(LoginV2Response {
+                user_id,
+                ssecurity,
+                pass_token,
+                location,
+            }));
+        } else {
+            response.location = Some(location);
+        }
     }
 
     let error = XiaomiError::Auth(response.error_message());

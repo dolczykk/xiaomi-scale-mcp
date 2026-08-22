@@ -13,7 +13,7 @@ use crate::{
 pub const APP_XIAOMI_HOME: &str = "xiaomiio";
 pub type Result<T> = std::result::Result<T, XiaomiError>;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Client {
     pub(crate) client: reqwest::Client,
     pub(crate) sid: String,
@@ -48,34 +48,40 @@ impl Client {
         })
     }
 
+    #[must_use]
     pub fn with_sid(mut self, sid: impl Into<String>) -> Self {
         self.sid = sid.into();
 
         self
     }
 
+    #[must_use]
     pub fn with_device_id(mut self, device_id: String) -> Self {
         self.device_id = Some(device_id);
 
         self
     }
 
+    #[must_use]
     pub fn with_locale(mut self, locale: String) -> Self {
         self.locale = locale;
 
         self
     }
 
+    #[must_use]
     pub fn with_region(mut self, region: String) -> Self {
         self.region = region;
 
         self
     }
 
+    #[must_use]
     pub fn device_id(&self) -> Option<String> {
         self.device_id.clone()
     }
 
+    #[must_use]
     pub fn token(&self) -> String {
         format!("{}:{}", self.user_id, self.pass_token)
     }
@@ -120,8 +126,8 @@ impl Client {
         cookies
     }
 
-    pub(crate) fn get_default_headers(&self) -> HashMap<String, String> {
-        let mut headers: HashMap<String, String> = HashMap::new();
+    pub(crate) fn default_headers() -> HashMap<String, String> {
+        let mut headers = HashMap::new();
 
         headers.insert(
             "miot-encrypt-algorithm".to_string(),
