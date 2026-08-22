@@ -53,9 +53,7 @@ impl Client {
         let body = read_login_response(response).await?;
         let res2 = parse_login_v2_response(&body)?;
 
-        self.pass_token = res2.pass_token.clone();
-        self.ssecurity = res2.ssecurity.clone();
-        self.user_id = res2.user_id;
+        self.apply_login_response(&res2);
 
         self.finish_auth(&res2.location).await
     }
@@ -64,7 +62,7 @@ impl Client {
         let pending = self
             .auth
             .as_mut()
-            .ok_or(XiaomiError::invalid_login_step("captcha not requested"))?;
+            .ok_or_else(|| XiaomiError::invalid_login_step("captcha not requested"))?;
 
         if pending.ick.as_deref().unwrap_or_default().is_empty() {
             let error = XiaomiError::invalid_login_step("captcha not requested");
@@ -86,25 +84,11 @@ impl Client {
     }
 
     pub async fn login_with_verify(&mut self, ticket: &str) -> Result<()> {
-        let pending = self.auth.as_ref().ok_or(XiaomiError::invalid_login_step(
-            "verification not requested",
-        ))?;
-        let flag = pending
-            .flag
-            .as_ref()
-            .ok_or(XiaomiError::invalid_login_step(
-                "verification not requested",
-            ))?;
-        let identity_session =
-            pending
-                .identity_session
-                .as_ref()
-                .ok_or(XiaomiError::invalid_login_step(
-                    "verification not requested",
-                ))?;
+        let (flag, identity_session) = self.verification_details()?;
+        let verification_name = verify_name(&flag)?;
 
         let form = vec![
-            ("_flag".to_string(), flag.clone()),
+            ("_flag".to_string(), flag),
             ("ticket".to_string(), ticket.to_string()),
             ("trust".to_string(), "false".to_string()),
             ("_json".to_string(), "true".to_string()),
@@ -114,8 +98,7 @@ impl Client {
             .client
             .post(format!(
                 "{}/identity/auth/verify{}",
-                ACCOUNT_BASE_URL,
-                self.verify_name()?
+                ACCOUNT_BASE_URL, verification_name
             ))
             .header(COOKIE, format!("identity_session={identity_session}"))
             .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
@@ -216,9 +199,7 @@ impl Client {
         let body = read_login_response(response).await?;
         match parse_login_v2_outcome(&body)? {
             LoginV2Outcome::Success(response) => {
-                self.pass_token = response.pass_token.clone();
-                self.ssecurity = response.ssecurity.clone();
-                self.user_id = response.user_id;
+                self.apply_login_response(&response);
                 Ok(response)
             }
             LoginV2Outcome::Captcha(captcha_url) => {
@@ -275,25 +256,8 @@ impl Client {
     }
 
     async fn send_ticket(&mut self) -> Result<()> {
-        let pending = self.auth.as_ref().ok_or(XiaomiError::invalid_login_step(
-            "verification not requested",
-        ))?;
-        let flag = pending
-            .flag
-            .as_ref()
-            .ok_or(XiaomiError::invalid_login_step(
-                "verification not requested",
-            ))?
-            .clone();
-        let identity_session = pending
-            .identity_session
-            .as_ref()
-            .ok_or(XiaomiError::invalid_login_step(
-                "verification not requested",
-            ))?
-            .clone();
-
-        let name = self.verify_name()?.to_string();
+        let (flag, identity_session) = self.verification_details()?;
+        let name = verify_name(&flag)?;
 
         let response = self
             .client
@@ -307,10 +271,7 @@ impl Client {
         let body = read_login_response(response).await?;
         let verify: VerifyMethodResponse = serde_json::from_slice(&body)?;
 
-        let pending = self.auth.as_ref().ok_or(XiaomiError::invalid_login_step(
-            "verification not requested",
-        ))?;
-
+        let pending = self.pending_auth()?;
         let captcha_code = pending.captcha_code.clone().unwrap_or_default();
         let mut cookies = format!("identity_session={identity_session}");
 
@@ -353,26 +314,6 @@ impl Client {
         let error = XiaomiError::LoginChallenge(challenge);
 
         Err(error)
-    }
-
-    fn verify_name(&self) -> Result<&'static str> {
-        let flag = self
-            .auth
-            .as_ref()
-            .and_then(|auth| auth.flag.as_deref())
-            .ok_or(XiaomiError::invalid_login_step(
-                "verification not requested",
-            ))?;
-
-        match flag {
-            "4" => Ok("Phone"),
-            "8" => Ok("Email"),
-            _ => {
-                let error = XiaomiError::invalid_login_step("unsupported verification type");
-
-                Err(error)
-            }
-        }
     }
 
     async fn finish_auth(&mut self, location: &str) -> Result<()> {
@@ -445,7 +386,7 @@ impl Client {
     async fn oauth2_authorize(&self, params: &str) -> Result<LoginV1Response> {
         let response = self
             .client
-            .get(format!("{}?{}", OAUTH2_AUTHORIZE_URL, params))
+            .get(format!("{OAUTH2_AUTHORIZE_URL}?{params}"))
             .send()
             .await?;
         let body = read_login_response(response).await?;
@@ -462,8 +403,38 @@ impl Client {
     }
 }
 
+impl Client {
+    fn apply_login_response(&mut self, response: &LoginV2Response) {
+        self.pass_token.clone_from(&response.pass_token);
+        self.ssecurity.clone_from(&response.ssecurity);
+        self.user_id = response.user_id;
+    }
+
+    fn pending_auth(&self) -> Result<&PendingAuth> {
+        self.auth
+            .as_ref()
+            .ok_or_else(|| XiaomiError::invalid_login_step("verification not requested"))
+    }
+
+    fn verification_details(&self) -> Result<(String, String)> {
+        let (flag, identity_session) = self.pending_auth()?.verification_details()?;
+
+        Ok((flag.to_owned(), identity_session.to_owned()))
+    }
+}
+
+fn verify_name(flag: &str) -> Result<&'static str> {
+    match flag {
+        "4" => Ok("Phone"),
+        "8" => Ok("Email"),
+        _ => Err(XiaomiError::invalid_login_step(
+            "unsupported verification type",
+        )),
+    }
+}
+
 fn raw_login_error(body: &[u8]) -> String {
-    format!("{}", String::from_utf8_lossy(body))
+    String::from_utf8_lossy(body).into_owned()
 }
 
 #[derive(Deserialize)]
@@ -511,23 +482,14 @@ mod tests {
 
     #[test]
     fn maps_verification_names() {
-        let mut client = Client::new().unwrap();
-        client.auth = Some(PendingAuth::new("user", "pass"));
-        client.auth.as_mut().unwrap().flag = Some("4".to_string());
-        assert_eq!(client.verify_name().unwrap(), "Phone");
-
-        client.auth.as_mut().unwrap().flag = Some("8".to_string());
-        assert_eq!(client.verify_name().unwrap(), "Email");
+        assert_eq!(verify_name("4").unwrap(), "Phone");
+        assert_eq!(verify_name("8").unwrap(), "Email");
     }
 
     #[test]
     fn rejects_unsupported_verification_name() {
-        let mut client = Client::new().unwrap();
-        client.auth = Some(PendingAuth::new("user", "pass"));
-        client.auth.as_mut().unwrap().flag = Some("2".to_string());
-
         assert!(matches!(
-            client.verify_name(),
+            verify_name("2"),
             Err(XiaomiError::InvalidLoginStep(message))
                 if message == "unsupported verification type"
         ));

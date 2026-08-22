@@ -10,6 +10,7 @@ use sha1::Sha1;
 
 use crate::{base::Result, errors::XiaomiError};
 
+#[must_use]
 pub fn generate_nonce() -> Vec<u8> {
     let mut nonce = Vec::with_capacity(16);
     nonce.extend_from_slice(&rand::rng().random::<i64>().to_be_bytes());
@@ -18,10 +19,12 @@ pub fn generate_nonce() -> Vec<u8> {
     nonce
 }
 
+#[must_use]
 pub fn generate_nonce64() -> String {
     STANDARD.encode(generate_nonce())
 }
 
+#[must_use]
 pub fn signed_nonce(ssecurity: &[u8], nonce: &[u8]) -> Vec<u8> {
     use sha2::Digest;
     use sha2::Sha256;
@@ -81,6 +84,7 @@ pub fn decrypt_rc4_base64(signed_nonce64: &str, payload64: &str) -> Result<Vec<u
     decrypt_bytes(&signed_nonce, &ciphertext)
 }
 
+#[must_use]
 pub fn gen_enc_signature(
     uri: &str,
     method: &str,
@@ -128,7 +132,7 @@ pub fn generate_encrypted_params_with_nonce(
     let signature = gen_enc_signature(uri, method, &signed_nonce64, &form);
     form.push(("signature".to_string(), signature));
     form.push(("ssecurity".to_string(), ssecurity64.to_string()));
-    form.push(("_nonce".to_string(), nonce64.clone()));
+    form.push(("_nonce".to_string(), nonce64));
 
     Ok(form)
 }
@@ -165,6 +169,7 @@ fn decode_base64(value: &str) -> Result<Vec<u8>> {
     Ok(STANDARD.decode(strip_wrapping_quotes(value.trim()))?)
 }
 
+#[must_use]
 pub fn strip_wrapping_quotes(value: &str) -> &str {
     if value.len() >= 2 {
         let bytes = value.as_bytes();

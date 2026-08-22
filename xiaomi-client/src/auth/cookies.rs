@@ -8,7 +8,7 @@ struct ExtensionPragma {
     ssecurity: Vec<u8>,
 }
 
-pub(crate) fn find_cookie(headers: &HeaderMap, name: &str) -> Option<String> {
+pub fn find_cookie(headers: &HeaderMap, name: &str) -> Option<String> {
     headers.get_all(SET_COOKIE).iter().find_map(|value| {
         value
             .to_str()
@@ -18,7 +18,7 @@ pub(crate) fn find_cookie(headers: &HeaderMap, name: &str) -> Option<String> {
     })
 }
 
-pub(crate) fn parse_extension_ssecurity(headers: &HeaderMap) -> Result<Option<Vec<u8>>> {
+pub fn parse_extension_ssecurity(headers: &HeaderMap) -> Result<Option<Vec<u8>>> {
     let Some(value) = headers.get("Extension-Pragma") else {
         return Ok(None);
     };

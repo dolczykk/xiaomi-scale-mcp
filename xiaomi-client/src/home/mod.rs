@@ -18,8 +18,7 @@ const XIAOMI_HOME_BASE_API: &str = "https://{}.api.io.mi.com/app";
 const XIAOMI_HOME_CORE_BASE_API: &str = "https://{}.core.api.io.mi.com/app/v2";
 
 #[derive(Debug, Deserialize)]
-#[serde(bound = "T: DeserializeOwned")]
-pub struct XiaomiHomeResponse<T: DeserializeOwned> {
+pub struct XiaomiHomeResponse<T> {
     pub code: i32,
     pub message: String,
     pub result: T,
@@ -27,14 +26,14 @@ pub struct XiaomiHomeResponse<T: DeserializeOwned> {
 
 impl<T: DeserializeOwned> XiaomiHomeResponse<T> {
     fn from_json(json: &str) -> Result<Self> {
-        let response: XiaomiHomeResponse<T> = serde_json::from_str(json)?;
+        let response: Self = serde_json::from_str(json)?;
 
         Ok(response)
     }
 }
 
 impl Client {
-    pub async fn home_request<TRequest: Serialize, TResponse: DeserializeOwned>(
+    pub async fn home_request<TRequest: Serialize + Sync, TResponse: DeserializeOwned>(
         &self,
         base_url: &str,
         api_url: &str,
@@ -61,7 +60,7 @@ impl Client {
 
         let mut request = self
             .client
-            .post(format!("{}{}", base_url, api_url))
+            .post(format!("{base_url}{api_url}"))
             .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
             .header(COOKIE, self.get_default_cookies())
             .body(body);
@@ -97,5 +96,28 @@ impl Client {
         }
 
         Ok(response)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::Client;
+
+    #[test]
+    fn home_request_future_is_send() {
+        fn assert_send<T: Send>(_: T) {}
+
+        let client = Client::new().unwrap();
+        let params = serde_json::json!({"request": "value"});
+        let headers = HashMap::new();
+
+        assert_send(client.home_request::<_, serde_json::Value>(
+            "https://example.com",
+            "/app/test",
+            &params,
+            &headers,
+        ));
     }
 }
