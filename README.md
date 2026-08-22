@@ -6,7 +6,7 @@
 [![Model Context Protocol](https://img.shields.io/badge/MCP-Streamable_HTTP-6b46c1)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An authenticated [Model Context Protocol](https://modelcontextprotocol.io/) server for reading Xiaomi scale profiles and body-composition measurements from Xiaomi Home. It exposes a Streamable HTTP endpoint, keeps Xiaomi credentials in the operating-system credential store, and caches measurements locally to reduce upstream requests.
+An authenticated [MCP](https://modelcontextprotocol.io/) server for reading Xiaomi scale profiles and body-composition measurements from Xiaomi Home API. It exposes a Streamable HTTP endpoint, keeps Xiaomi credentials in the operating-system credential store, and caches measurements locally to reduce upstream requests.
 
 > This is an independent project and is not affiliated with, endorsed by, or supported by Xiaomi.
 
@@ -16,9 +16,7 @@ An authenticated [Model Context Protocol](https://modelcontextprotocol.io/) serv
 - Discover Xiaomi scale profiles and retrieve their latest or historical measurements.
 - Return weight, BMI, body-fat percentage, heart rate, muscle mass, and other metrics when Xiaomi provides them.
 - Authenticate interactively, including captcha and verification-code challenges.
-- Store only the generated Xiaomi account token in the system credential store; never in `config.toml`.
 - Cache profile and measurement responses locally with a five-minute freshness window.
-- Include a reusable Xiaomi Home client library plus demonstration and encryption helper CLIs.
 
 ```mermaid
 flowchart LR
@@ -31,7 +29,7 @@ flowchart LR
 
 ## Requirements
 
-- A current Rust toolchain with Cargo when building from source.
+- Rust 1.90.0 or newer with Cargo when building from source.
 - A Xiaomi account with a compatible scale visible in Xiaomi Home. The current discovery flow supports devices whose model starts with `yunmai.scales.`.
 - A working operating-system credential store. On Linux, this commonly means a Secret Service-compatible keyring.
 
