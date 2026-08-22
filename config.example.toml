@@ -5,5 +5,4 @@ authorization_token = ""
 
 [xiaomi]
 sid = "xiaomiio"
-device_id = ""
 region = "de"

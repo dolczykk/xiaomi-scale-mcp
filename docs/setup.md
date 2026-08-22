@@ -19,11 +19,10 @@ authorization_token = "replace-with-a-long-random-token"
 
 [xiaomi]
 sid = "xiaomiio"
-device_id = ""
 region = "de"
 ```
 
-`authorization_token` protects the MCP endpoint and is separate from the Xiaomi account token. `sid`, `device_id`, and `region` are non-secret settings; leave `device_id` empty to generate one. For available Xiaomi region values, see openHAB's [country server list](https://www.openhab.org/addons/bindings/miio/#country-servers).
+`authorization_token` protects the MCP endpoint and is separate from the Xiaomi account token. `sid` and `region` are optional, non-secret Xiaomi settings. For available Xiaomi region values, see openHAB's [country server list](https://www.openhab.org/addons/bindings/miio/#country-servers).
 
 Never commit `config.toml` or add a Xiaomi account token to it.
 

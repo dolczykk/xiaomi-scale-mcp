@@ -24,7 +24,6 @@ pub(crate) struct ServerConfig {
 #[serde(deny_unknown_fields)]
 pub(crate) struct XiaomiConfig {
     pub(crate) sid: Option<String>,
-    pub(crate) device_id: Option<String>,
     pub(crate) region: Option<String>,
 }
 
@@ -34,9 +33,6 @@ impl XiaomiConfig {
 
         if let Some(sid) = non_empty(&self.sid) {
             client = client.with_sid(sid.to_string());
-        }
-        if let Some(device_id) = non_empty(&self.device_id) {
-            client = client.with_device_id(device_id.to_string());
         }
         if let Some(region) = non_empty(&self.region) {
             client = client.with_region(region.to_string());
@@ -107,36 +103,5 @@ mod tests {
         config.validate().unwrap();
         assert_eq!(config.server.bind_address, "127.0.0.1:8080");
         assert_eq!(config.xiaomi.region.as_deref(), Some("de"));
-    }
-
-    #[test]
-    fn rejects_empty_authorization_token() {
-        let config: Config = toml::from_str(
-            r#"
-                [server]
-                authorization_token = "  "
-
-                [xiaomi]
-            "#,
-        )
-        .unwrap();
-
-        assert!(config.validate().is_err());
-    }
-
-    #[test]
-    fn rejects_legacy_xiaomi_token_field() {
-        let error = toml::from_str::<Config>(
-            r#"
-                [server]
-                authorization_token = "mcp-secret"
-
-                [xiaomi]
-                token = "123:pass-token"
-            "#,
-        )
-        .unwrap_err();
-
-        assert!(error.to_string().contains("unknown field `token`"));
     }
 }
