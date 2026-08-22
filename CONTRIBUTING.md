@@ -10,7 +10,7 @@ Thanks for your interest in contributing. Bug reports, documentation improvement
 
 ## Development setup
 
-The repository is a Rust workspace. Install a current Rust toolchain, then build it from the repository root:
+The repository is a Rust workspace using Rust Edition 2024. Install Rust 1.90.0 or newer with Cargo, then build it from the repository root:
 
 ```bash
 cargo build --workspace
@@ -53,9 +53,32 @@ When a change affects authentication or Xiaomi network behavior, also describe t
 - Treat cached scale profiles and measurements as sensitive health data. Do not attach the `data/` directory to issues or pull requests.
 - Report suspected security vulnerabilities privately to the repository owner instead of opening a public issue.
 
+## Commit messages
+
+Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
+Commit messages should follow this format:
+
+```text
+<type>[optional scope]: <description>
+```
+
+Use lowercase types such as `feat`, `fix`, `docs`, `refactor`, `test`, `build`, `ci`, and `chore`.
+Keep the description short and imperative. Use a scope when it adds useful context, for example:
+
+```text
+fix(auth): handle expired Xiaomi sessions
+docs: clarify Docker setup
+```
+
+Mark breaking changes with `!` or a `BREAKING CHANGE:` footer, for example:
+
+```text
+feat(config)!: remove legacy token settings
+```
+
 ## Pull requests
 
-Use a short, imperative commit subject, for example `Add token login helper`. In the pull request description, include:
+Use a Conventional Commit subject, for example `feat(auth): support verification challenges`. In the pull request description, include:
 
 1. What changed and why.
 2. The validation commands you ran and their results.
