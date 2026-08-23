@@ -17,6 +17,8 @@ pub(crate) struct Config {
 pub(crate) struct ServerConfig {
     #[serde(default = "default_bind_address")]
     pub(crate) bind_address: String,
+    #[serde(default = "default_allowed_hosts")]
+    pub(crate) allowed_hosts: Vec<String>,
     pub(crate) authorization_token: String,
 }
 
@@ -58,8 +60,19 @@ impl Config {
         if self.server.authorization_token.trim().is_empty() {
             bail!("server.authorization_token must not be empty");
         }
+
         if self.server.bind_address.trim().is_empty() {
             bail!("server.bind_address must not be empty");
+        }
+
+        if self.server.allowed_hosts.is_empty()
+            || self
+                .server
+                .allowed_hosts
+                .iter()
+                .any(|host| host.trim().is_empty())
+        {
+            bail!("server.allowed_hosts must contain only non-empty hosts");
         }
 
         Ok(())
@@ -74,6 +87,14 @@ fn config_path() -> PathBuf {
 
 fn default_bind_address() -> String {
     "127.0.0.1:8080".to_string()
+}
+
+fn default_allowed_hosts() -> Vec<String> {
+    vec![
+        "localhost".to_string(),
+        "127.0.0.1".to_string(),
+        "::1".to_string(),
+    ]
 }
 
 fn non_empty(value: &Option<String>) -> Option<&str> {
@@ -102,6 +123,43 @@ mod tests {
 
         config.validate().unwrap();
         assert_eq!(config.server.bind_address, "127.0.0.1:8080");
+        assert_eq!(
+            config.server.allowed_hosts,
+            ["localhost", "127.0.0.1", "::1"]
+        );
         assert_eq!(config.xiaomi.region.as_deref(), Some("de"));
+    }
+
+    #[test]
+    fn accepts_explicit_allowed_hosts() {
+        let config: Config = toml::from_str(
+            r#"
+                [server]
+                authorization_token = "mcp-secret"
+                allowed_hosts = ["localhost", "192.168.1.11"]
+
+                [xiaomi]
+            "#,
+        )
+        .unwrap();
+
+        config.validate().unwrap();
+        assert_eq!(config.server.allowed_hosts, ["localhost", "192.168.1.11"]);
+    }
+
+    #[test]
+    fn rejects_empty_allowed_host_entries() {
+        let config: Config = toml::from_str(
+            r#"
+                [server]
+                authorization_token = "mcp-secret"
+                allowed_hosts = ["localhost", ""]
+
+                [xiaomi]
+            "#,
+        )
+        .unwrap();
+
+        assert!(config.validate().is_err());
     }
 }

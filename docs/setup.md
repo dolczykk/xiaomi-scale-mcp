@@ -15,6 +15,8 @@ Both installation methods require a local `config.toml` with a strong MCP bearer
 ```toml
 [server]
 bind_address = "127.0.0.1:8080"
+# Add the LAN IP or DNS name n8n uses when it connects from another machine.
+allowed_hosts = ["localhost", "127.0.0.1", "::1"]
 authorization_token = "replace-with-a-long-random-token"
 
 [xiaomi]
@@ -22,7 +24,7 @@ sid = "xiaomiio"
 region = "de"
 ```
 
-`authorization_token` protects the MCP endpoint and is separate from the Xiaomi account token. `sid` and `region` are optional, non-secret Xiaomi settings. For available Xiaomi region values, see openHAB's [country server list](https://www.openhab.org/addons/bindings/miio/#country-servers).
+`authorization_token` protects the MCP endpoint and is separate from the Xiaomi account token. `allowed_hosts` defaults to loopback hosts and protects against DNS-rebinding requests; add the LAN IP or hostname used by a trusted remote client such as n8n. `sid` and `region` are optional, non-secret Xiaomi settings. For available Xiaomi region values, see openHAB's [country server list](https://www.openhab.org/addons/bindings/miio/#country-servers).
 
 Never commit `config.toml` or add a Xiaomi account token to it.
 
