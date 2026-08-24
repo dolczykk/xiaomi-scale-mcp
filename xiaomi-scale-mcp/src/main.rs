@@ -33,7 +33,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
     let transport_config = StreamableHttpServerConfig::default()
         .with_legacy_session_mode(false)
-        .with_json_response(true);
+        .with_json_response(true)
+        .with_allowed_hosts(app_config.server.allowed_hosts.clone());
 
     let mcp_service = StreamableHttpService::new(
         {

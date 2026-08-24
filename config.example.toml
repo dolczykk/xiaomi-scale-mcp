@@ -1,6 +1,8 @@
 [server]
 # Bind to localhost by default. Use an explicit trusted address only when needed.
 bind_address = "127.0.0.1:8080"
+# Hosts accepted in incoming HTTP Host headers.
+allowed_hosts = ["localhost", "127.0.0.1", "::1"]
 authorization_token = ""
 
 [xiaomi]

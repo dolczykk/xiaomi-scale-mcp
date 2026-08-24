@@ -52,6 +52,8 @@ Edit `config.toml`:
 ```toml
 [server]
 bind_address = "127.0.0.1:8080"
+# Add the LAN IP or DNS name n8n uses when it connects from another machine.
+allowed_hosts = ["localhost", "127.0.0.1", "::1"]
 authorization_token = "random-token"
 
 [xiaomi]
@@ -59,7 +61,7 @@ sid = "xiaomiio"
 region = "de"
 ```
 
-`authorization_token` is required. `sid` and `region` are optional, non-secret Xiaomi client settings. For the available Xiaomi region values, see openHAB's [country server list](https://www.openhab.org/addons/bindings/miio/#country-servers).
+`authorization_token` is required. `allowed_hosts` defaults to loopback hosts and protects against DNS-rebinding requests; add the LAN IP or hostname used by a trusted remote client such as n8n. `sid` and `region` are optional, non-secret Xiaomi client settings. For the available Xiaomi region values, see openHAB's [country server list](https://www.openhab.org/addons/bindings/miio/#country-servers).
 
 Build and start the server:
 
