@@ -50,6 +50,16 @@ pub(crate) struct MCPWeightResult {
     pub(crate) body_score: Option<u32>,
 }
 
+#[derive(Debug, Deserialize, Serialize, schemars::JsonSchema)]
+pub(crate) struct MCPWeightProfilesResponse {
+    pub(crate) profiles: Vec<MCPWeightProfile>,
+}
+
+#[derive(Debug, Deserialize, Serialize, schemars::JsonSchema)]
+pub(crate) struct MCPHistoricalWeightsResponse {
+    pub(crate) weights: Vec<MCPWeightResult>,
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub(super) struct ProfileContext {
     pub(super) profile_id: String,

@@ -3,7 +3,8 @@ use rmcp::{Json, tool, tool_router};
 
 use super::service::{WeightService, validate_page_size};
 use super::types::{
-    MCPHistoricalWeightsRequest, MCPWeightProfile, MCPWeightRequest, MCPWeightResult,
+    MCPHistoricalWeightsRequest, MCPHistoricalWeightsResponse, MCPWeightProfilesResponse,
+    MCPWeightRequest, MCPWeightResult,
 };
 
 #[derive(Clone)]
@@ -39,7 +40,7 @@ impl McpWeightTools {
             before,
             page_size,
         }): Parameters<MCPHistoricalWeightsRequest>,
-    ) -> Result<Json<Vec<MCPWeightResult>>, String> {
+    ) -> Result<Json<MCPHistoricalWeightsResponse>, String> {
         if before.is_some_and(|timestamp| timestamp <= 0) {
             return Err("before must be a positive Unix timestamp in milliseconds".to_string());
         }
@@ -48,16 +49,16 @@ impl McpWeightTools {
         self.weights
             .historical_weights(&profile_id, before, page_size)
             .await
-            .map(Json)
+            .map(|weights| Json(MCPHistoricalWeightsResponse { weights }))
             .map_err(|error| error.to_string())
     }
 
     #[tool(description = "Get available Xiaomi scale weight profiles")]
-    async fn get_users(&self) -> Result<Json<Vec<MCPWeightProfile>>, String> {
+    async fn get_users(&self) -> Result<Json<MCPWeightProfilesResponse>, String> {
         self.weights
             .profiles()
             .await
-            .map(Json)
+            .map(|profiles| Json(MCPWeightProfilesResponse { profiles }))
             .map_err(|error| error.to_string())
     }
 }
@@ -74,7 +75,14 @@ mod tests {
                 .iter()
                 .find(|tool| tool.name == name)
                 .unwrap_or_else(|| panic!("missing tool {name}"));
-            assert!(tool.output_schema.is_some(), "missing schema for {name}");
+            assert_eq!(
+                tool.output_schema
+                    .as_ref()
+                    .and_then(|schema| schema.get("type"))
+                    .and_then(|value| value.as_str()),
+                Some("object"),
+                "{name} must expose an object output schema"
+            );
         }
     }
 }
