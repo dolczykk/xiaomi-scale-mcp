@@ -26,6 +26,16 @@ This guide covers the most common setup and runtime problems. Do not include Xia
 | A profile has no measurements | Xiaomi Home may not have returned data for that profile. Call `get_users` first, then pass one returned `profile_id` to the measurement tools. |
 | Measurements appear stale | Responses are cached for five minutes. Wait for the cache window to expire, then retry the tool call. |
 
+## Logging
+
+| Problem | What to check |
+| --- | --- |
+| Application logs clutter the console | Set `logging.output = "file"`, which is the default, or set `logging.enabled = false`. Interactive prompts and command results remain visible. |
+| Log files are missing | Confirm logging is enabled, `output` is `file` or `both`, and the configured `directory` is writable. The default location is `./data/logs`. |
+| The log directory keeps growing | Daily log files are retained indefinitely. Remove older files manually or manage them with an external retention policy. |
+| Unexpected log level | Check `logging.level` and whether `RUST_LOG` overrides it in the server environment. |
+| Server fails while initializing logging | Check the configured log-directory path and permissions. Requested file logging does not fall back to console output. |
+
 ## Cache and Docker
 
 | Problem | What to check |

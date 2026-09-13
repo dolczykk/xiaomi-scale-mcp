@@ -4,6 +4,7 @@ mod cache;
 mod config;
 mod console;
 mod credentials;
+mod logging;
 mod session;
 mod time;
 mod weights;
@@ -25,9 +26,8 @@ use crate::weights::McpWeightTools;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<(), anyhow::Error> {
-    flexi_logger::Logger::try_with_env_or_str("info")?.start()?;
-
     let app_config = Config::load()?;
+    let _ = logging::initialize(&app_config.logging)?;
     let credentials: Arc<dyn CredentialStore> = Arc::new(SystemCredentialStore);
     let runtime = Arc::new(App::new(&app_config, Arc::clone(&credentials)).await?);
 

@@ -11,6 +11,8 @@ const CONFIG_PATH_ENV: &str = "MCP_CONFIG_PATH";
 pub(crate) struct Config {
     pub(crate) server: ServerConfig,
     pub(crate) xiaomi: XiaomiConfig,
+    #[serde(default)]
+    pub(crate) logging: LoggingConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -27,6 +29,64 @@ pub(crate) struct ServerConfig {
 pub(crate) struct XiaomiConfig {
     pub(crate) sid: Option<String>,
     pub(crate) region: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub(crate) struct LoggingConfig {
+    pub(crate) enabled: bool,
+    pub(crate) level: LogLevel,
+    pub(crate) output: LogOutput,
+    pub(crate) directory: PathBuf,
+}
+
+impl Default for LoggingConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            level: LogLevel::Info,
+            output: LogOutput::File,
+            directory: PathBuf::from("./data/logs"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum LogLevel {
+    Error,
+    Warn,
+    #[default]
+    Info,
+    Debug,
+    Trace,
+}
+
+impl LogLevel {
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Error => "error",
+            Self::Warn => "warn",
+            Self::Info => "info",
+            Self::Debug => "debug",
+            Self::Trace => "trace",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum LogOutput {
+    Console,
+    #[default]
+    File,
+    Both,
+}
+
+impl LogOutput {
+    pub(crate) const fn writes_to_file(self) -> bool {
+        matches!(self, Self::File | Self::Both)
+    }
 }
 
 impl XiaomiConfig {
@@ -75,6 +135,13 @@ impl Config {
             bail!("server.allowed_hosts must contain only non-empty hosts");
         }
 
+        if self.logging.enabled
+            && self.logging.output.writes_to_file()
+            && self.logging.directory.as_os_str().is_empty()
+        {
+            bail!("logging.directory must not be empty when file logging is enabled");
+        }
+
         Ok(())
     }
 }
@@ -106,7 +173,23 @@ fn non_empty(value: &Option<String>) -> Option<&str> {
 
 #[cfg(test)]
 mod tests {
-    use super::Config;
+    use std::path::Path;
+
+    use super::{Config, LogLevel, LogOutput};
+
+    fn parse_logging_config(logging: &str) -> Result<Config, toml::de::Error> {
+        toml::from_str(&format!(
+            r#"
+                [server]
+                authorization_token = "mcp-secret"
+
+                [xiaomi]
+
+                [logging]
+                {logging}
+            "#,
+        ))
+    }
 
     #[test]
     fn parses_valid_configuration() {
@@ -128,6 +211,10 @@ mod tests {
             ["localhost", "127.0.0.1", "::1"]
         );
         assert_eq!(config.xiaomi.region.as_deref(), Some("de"));
+        assert!(config.logging.enabled);
+        assert_eq!(config.logging.level, LogLevel::Info);
+        assert_eq!(config.logging.output, LogOutput::File);
+        assert_eq!(config.logging.directory, Path::new("./data/logs"));
     }
 
     #[test]
@@ -161,5 +248,24 @@ mod tests {
         .unwrap();
 
         assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn parses_logging_configuration() {
+        let config = parse_logging_config(
+            r#"
+                enabled = false
+                level = "debug"
+                output = "both"
+                directory = "custom-logs"
+            "#,
+        )
+        .unwrap();
+
+        config.validate().unwrap();
+        assert!(!config.logging.enabled);
+        assert_eq!(config.logging.level, LogLevel::Debug);
+        assert_eq!(config.logging.output, LogOutput::Both);
+        assert_eq!(config.logging.directory, Path::new("custom-logs"));
     }
 }
