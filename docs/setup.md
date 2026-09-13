@@ -19,6 +19,12 @@ bind_address = "127.0.0.1:8080"
 allowed_hosts = ["localhost", "127.0.0.1", "::1"]
 authorization_token = "replace-with-a-long-random-token"
 
+[logging]
+enabled = true
+level = "info"
+output = "file"
+directory = "./data/logs"
+
 [xiaomi]
 sid = "xiaomiio"
 region = "de"
@@ -27,6 +33,17 @@ region = "de"
 `authorization_token` protects the MCP endpoint and is separate from the Xiaomi account token. `allowed_hosts` defaults to loopback hosts and protects against DNS-rebinding requests; add the LAN IP or hostname used by a trusted remote client such as n8n. `sid` and `region` are optional, non-secret Xiaomi settings. For available Xiaomi region values, see openHAB's [country server list](https://www.openhab.org/addons/bindings/miio/#country-servers).
 
 Never commit `config.toml` or add a Xiaomi account token to it.
+
+### Configure logging
+
+Application logging is enabled by default and writes `info` messages to `./data/logs`. Configure it with:
+
+* `enabled`: use `false` to disable application logging completely.
+* `level`: `error`, `warn`, `info`, `debug`, or `trace`.
+* `output`: `console`, `file`, or `both`.
+* `directory`: destination used by `file` and `both`.
+
+Every application log line starts with a local timestamp including milliseconds and the UTC offset. File logging appends to one date-named file per day and does not delete older files automatically. The `RUST_LOG` environment variable overrides `level` while logging is enabled. Interactive authentication prompts and console command results are always displayed and are not application logs.
 
 ## Run a GitHub Release binary
 
@@ -63,7 +80,7 @@ Replace `v0.1.0` with the release tag you want to run. This command is Linux-spe
 
 ### Use Docker Compose instead
 
-Save this as `docker-compose.yml` beside your `config.toml`. It pulls the published image, persists the cache in a named volume, and forwards the Linux D-Bus session for the credential store:
+Save this as `docker-compose.yml` beside your `config.toml`. It pulls the published image, persists the cache and default log directory in a named volume, and forwards the Linux D-Bus session for the credential store:
 
 ```yaml
 volumes:

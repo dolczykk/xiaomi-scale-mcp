@@ -5,6 +5,15 @@ bind_address = "127.0.0.1:8080"
 allowed_hosts = ["localhost", "127.0.0.1", "::1"]
 authorization_token = ""
 
+[logging]
+# Disable application logs without hiding interactive console prompts.
+enabled = true
+# Supported levels: error, warn, info, debug, trace.
+level = "info"
+# Supported outputs: console, file, both.
+output = "file"
+directory = "./data/logs"
+
 [xiaomi]
 sid = "xiaomiio"
 region = "de"

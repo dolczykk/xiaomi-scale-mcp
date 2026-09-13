@@ -56,12 +56,20 @@ bind_address = "127.0.0.1:8080"
 allowed_hosts = ["localhost", "127.0.0.1", "::1"]
 authorization_token = "random-token"
 
+[logging]
+enabled = true
+level = "info"
+output = "file"
+directory = "./data/logs"
+
 [xiaomi]
 sid = "xiaomiio"
 region = "de"
 ```
 
 `authorization_token` is required. `allowed_hosts` defaults to loopback hosts and protects against DNS-rebinding requests; add the LAN IP or hostname used by a trusted remote client such as n8n. `sid` and `region` are optional, non-secret Xiaomi client settings. For the available Xiaomi region values, see openHAB's [country server list](https://www.openhab.org/addons/bindings/miio/#country-servers).
+
+Application logging defaults to `info` messages written under `./data/logs`, keeping the interactive console clear. Set `logging.enabled = false` to disable application logs, or set `logging.output` to `console`, `file`, or `both`. Every application log line starts with a local timestamp including milliseconds and the UTC offset. File logging appends to one date-named file per day and does not delete older files automatically. `RUST_LOG` overrides the configured level when logging is enabled; interactive prompts and command results remain visible in every mode.
 
 Build and start the server:
 
@@ -109,7 +117,7 @@ Measurements include `weight_kg` and `measured_at_seconds`, plus optional values
 
 ## Cache and privacy
 
-The server caches profile and measurement responses in `./data/xiaomi-scale-mcp`. Cached data is considered fresh for five minutes. Records older than seven days are removed when the cache initializes. If the on-disk SurrealKV cache cannot be opened, the server logs a warning and continues with an in-memory cache.
+The server caches profile and measurement responses in `./data/xiaomi-scale-mcp`. Cached data is considered fresh for five minutes. Records older than seven days are removed when the cache initializes. If the on-disk SurrealKV cache cannot be opened, the server logs a warning and continues with an in-memory cache. With the default configuration, application logs are stored in `./data/logs`.
 
 The cache contains retrieved profile and health data, so protect the host and the `data/` directory accordingly. Xiaomi passwords, pass tokens, cookies, signed parameters, and encrypted request payloads are not stored in the cache. The generated Xiaomi token is stored only through the operating-system credential-store integration.
 

@@ -27,6 +27,7 @@ Keep responsibilities within their existing crate and module boundaries. Avoid u
 * `xiaomi-scale-mcp/src/auth.rs` authenticates `/mcp` requests using the configured bearer token.
 * `xiaomi-scale-mcp/src/console.rs` runs the interactive Xiaomi authentication command loop alongside the MCP server.
 * `xiaomi-scale-mcp/src/credentials.rs` stores the generated Xiaomi token in the operating system credential store.
+* `xiaomi-scale-mcp/src/logging.rs` configures disabled, console, rotating file, or combined application logging.
 * `xiaomi-scale-mcp/src/state.rs` initializes shared cache storage and manages the resettable, credential-backed repository.
 * `xiaomi-scale-mcp/src/tools.rs` contains structured Xiaomi weight MCP tools and delegates data access to the repository.
 * `xiaomi-scale-mcp/src/models.rs` contains MCP request and response schemas.
@@ -130,6 +131,8 @@ Authorization: Bearer <server.authorization_token>
 
 * `[xiaomi].sid` and `[xiaomi].region` are optional and non-secret.
 * The Xiaomi client generates its own device ID.
+* `[logging]` controls whether application logging is enabled, its level, output (`console`, `file`, or `both`), and file directory.
+* Logging defaults to `info` and file-only output under `./data/logs`. Every application log line starts with a local timestamp including milliseconds and the UTC offset. File output appends to one date-named file per day and does not remove older files automatically. Interactive console messages are always displayed.
 * The server console supports `auth`, `status`, `logout`, and `help`.
 * `auth` handles Xiaomi password, captcha, and verification challenges.
 * The MCP response cache uses embedded SurrealKV at `./data/xiaomi-scale-mcp`.
