@@ -13,6 +13,11 @@ pub(crate) struct MCPHistoricalWeightsRequest {
     pub(crate) profile_id: String,
 
     #[schemars(
+        description = "Include measurements at or after this date: YYYY-MM-DD (midnight UTC) or RFC 3339 with timezone. Must be after the Unix epoch and earlier than before when both are provided. Omit or use null for no lower bound. Filters a single page, so fewer than page_size measurements may be returned."
+    )]
+    pub(crate) after: Option<String>,
+
+    #[schemars(
         description = "Fetch measurements before this date: YYYY-MM-DD (e.g. 2026-11-12, midnight UTC) or RFC 3339 with timezone (e.g. 2026-11-12T15:30:00+01:00). Must be after the Unix epoch. Omit or use null for the latest page."
     )]
     pub(crate) before: Option<String>,

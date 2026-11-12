@@ -7,7 +7,7 @@ pub(crate) fn current_unix_millis() -> anyhow::Result<i64> {
         .map(|duration| i64::try_from(duration.as_millis()).unwrap_or(i64::MAX))
 }
 
-pub(crate) fn parse_before_millis(value: &str) -> Result<i64, String> {
+pub(crate) fn parse_date_millis(value: &str, parameter: &str) -> Result<i64, String> {
     let timestamp = DateTime::parse_from_rfc3339(value)
         .map(|date| date.timestamp_millis())
         .ok()
@@ -19,11 +19,13 @@ pub(crate) fn parse_before_millis(value: &str) -> Result<i64, String> {
             Some(date.and_hms_opt(0, 0, 0)?.and_utc().timestamp_millis())
         })
         .ok_or_else(|| {
-            "before must be a YYYY-MM-DD date (e.g. 2026-11-12, midnight UTC) or an RFC 3339 datetime with timezone (e.g. 2026-11-12T15:30:00+01:00)".to_string()
+            format!("{parameter} must be a YYYY-MM-DD date (e.g. 2026-11-12, midnight UTC) or an RFC 3339 datetime with timezone (e.g. 2026-11-12T15:30:00+01:00)")
         })?;
 
     if timestamp <= 0 {
-        return Err("before must be after the Unix epoch (1970-01-01T00:00:00Z)".to_string());
+        return Err(format!(
+            "{parameter} must be after the Unix epoch (1970-01-01T00:00:00Z)"
+        ));
     }
 
     Ok(timestamp)
@@ -31,31 +33,57 @@ pub(crate) fn parse_before_millis(value: &str) -> Result<i64, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_before_millis;
+    use super::parse_date_millis;
+
+    #[test]
+    fn after_uses_the_same_formats_and_reports_its_parameter_name() {
+        for value in ["2026-11-12", "2026-11-12T01:00:00+01:00"] {
+            assert_eq!(
+                parse_date_millis(value, "after"),
+                parse_date_millis("2026-11-12T00:00:00Z", "before")
+            );
+        }
+        for value in [
+            "invalid",
+            "1794441600000",
+            "2026-02-29",
+            "1970-01-01",
+            "1969-12-31",
+        ] {
+            assert!(
+                parse_date_millis(value, "after")
+                    .unwrap_err()
+                    .starts_with("after must")
+            );
+        }
+    }
 
     #[test]
     fn parses_dates_at_midnight_utc_and_equivalent_timezone_offsets() {
-        let expected = parse_before_millis("2026-11-12T00:00:00Z").unwrap();
-        assert_eq!(parse_before_millis("2026-11-12"), Ok(expected));
+        let expected = parse_date_millis("2026-11-12T00:00:00Z", "before").unwrap();
+        assert_eq!(parse_date_millis("2026-11-12", "before"), Ok(expected));
         assert_eq!(
-            parse_before_millis("2026-11-12T01:00:00+01:00"),
+            parse_date_millis("2026-11-12T01:00:00+01:00", "before"),
             Ok(expected)
         );
         assert_eq!(
-            parse_before_millis("2026-11-11T19:00:00-05:00"),
+            parse_date_millis("2026-11-11T19:00:00-05:00", "before"),
             Ok(expected)
         );
         assert_eq!(
-            parse_before_millis("2026-11-12T00:00:00.123Z"),
+            parse_date_millis("2026-11-12T00:00:00.123Z", "before"),
             Ok(expected + 123)
         );
     }
 
     #[test]
     fn accepts_valid_leap_days_and_positive_milliseconds() {
-        assert!(parse_before_millis("2024-02-29").is_ok());
-        assert_eq!(parse_before_millis("1970-01-01T00:00:00.001Z"), Ok(1));
-        assert_eq!(parse_before_millis("1970-01-02"), Ok(86_400_000));
+        assert!(parse_date_millis("2024-02-29", "before").is_ok());
+        assert_eq!(
+            parse_date_millis("1970-01-01T00:00:00.001Z", "before"),
+            Ok(1)
+        );
+        assert_eq!(parse_date_millis("1970-01-02", "before"), Ok(86_400_000));
     }
 
     #[test]
@@ -69,7 +97,7 @@ mod tests {
             "2026-1-2",
             "12/11/2026",
         ] {
-            let error = parse_before_millis(value).unwrap_err();
+            let error = parse_date_millis(value, "before").unwrap_err();
             assert!(error.contains("YYYY-MM-DD"), "{value}: {error}");
             assert!(error.contains("RFC 3339"), "{value}: {error}");
         }
@@ -84,7 +112,7 @@ mod tests {
             "1970-01-01T01:00:00+01:00",
         ] {
             assert!(
-                parse_before_millis(value)
+                parse_date_millis(value, "before")
                     .unwrap_err()
                     .contains("Unix epoch")
             );
