@@ -50,7 +50,7 @@ impl McpWeightTools {
             .as_deref()
             .map(|value| parse_date_millis(value, "after"))
             .transpose()?;
-        
+
         let before = before
             .as_deref()
             .map(|value| parse_date_millis(value, "before"))
@@ -88,15 +88,15 @@ mod tests {
             .find(|tool| tool.name == "get_historical_weights")
             .unwrap();
         let schema = serde_json::to_value(&tool.input_schema).unwrap();
-        
+
         for parameter in ["after", "before"] {
             assert_eq!(
                 schema["properties"][parameter]["type"],
                 json!(["string", "null"])
             );
-            
+
             assert!(schema["properties"][parameter].get("format").is_none());
-            
+
             assert!(
                 !schema["required"]
                     .as_array()
@@ -137,19 +137,19 @@ mod tests {
                 "profile_id": "profile", "after": after,
             }))
             .unwrap();
-            
+
             assert_eq!(request.after.as_deref(), Some(after));
         }
-        
+
         for value in [
             json!({"profile_id": "profile"}),
             json!({"profile_id": "profile", "after": null}),
         ] {
             let request: MCPHistoricalWeightsRequest = serde_json::from_value(value).unwrap();
-            
+
             assert!(request.after.is_none());
         }
-        
+
         assert!(
             serde_json::from_value::<MCPHistoricalWeightsRequest>(json!({
                 "profile_id": "profile", "after": 1794441600000_i64,

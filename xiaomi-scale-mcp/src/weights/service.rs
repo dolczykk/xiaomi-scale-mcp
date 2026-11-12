@@ -70,7 +70,7 @@ impl WeightService {
         if let (Some(after), Some(before)) = (after, before) {
             anyhow::ensure!(after < before, "after must be earlier than before");
         }
-        
+
         let xiaomi = self.xiaomi_session.authenticated().await?;
         let mut measurements = self
             .weight_page(
@@ -475,7 +475,7 @@ mod tests {
             XiaomiConfig::default(),
             Arc::new(MemoryCredentialStore::default()),
         ));
-        
+
         let service = WeightService::new(CacheStore::in_memory().await.unwrap(), session);
         for after in [2_000, 3_000] {
             let error = service
@@ -493,13 +493,13 @@ mod tests {
                 XiaomiConfig::default(),
                 Arc::new(MemoryCredentialStore::default()),
             ));
-            
+
             session.store_token("user-1:pass-token").await.unwrap();
             let cache = CacheStore::in_memory().await.unwrap();
             let now = current_unix_millis().unwrap();
             // A fresh empty profile list makes stale-page refresh fail locally,
             // exercising fallback without contacting Xiaomi.
-            
+
             cache
                 .save_profiles(
                     "user-1",
@@ -508,14 +508,14 @@ mod tests {
                 )
                 .await
                 .unwrap();
-            
+
             let mut measurements = Vec::new();
             for seconds in [4, 3, 2, 1] {
                 let mut value = measurement();
                 value.measured_at_seconds = seconds;
                 measurements.push(value);
             }
-            
+
             let key = history_cache_key("profile-1", Some(4_000), 20);
             cache
                 .save_weights(
@@ -531,7 +531,7 @@ mod tests {
                 )
                 .await
                 .unwrap();
-            
+
             let latest_key = history_cache_key("profile-1", None, 20);
             cache
                 .save_weights("user-1", &latest_key, "profile-1", &measurements, now)
@@ -547,7 +547,7 @@ mod tests {
                 )
                 .await
                 .unwrap();
-            
+
             let service = WeightService::new(cache.clone(), Arc::clone(&session));
             for (after, before, expected) in [
                 (Some(2_000), Some(4_000), vec![3, 2]),
@@ -562,7 +562,7 @@ mod tests {
                     .historical_weights("profile-1", after, before, 20)
                     .await
                     .unwrap();
-            
+
                 assert_eq!(
                     actual
                         .iter()
@@ -571,13 +571,13 @@ mod tests {
                     expected
                 );
             }
-            
+
             let cached = cache
                 .load_weights::<Vec<MCPWeightResult>>("user-1", &key)
                 .await
                 .unwrap()
                 .unwrap();
-            
+
             assert_eq!(cached.value, measurements);
             assert!(
                 !session
