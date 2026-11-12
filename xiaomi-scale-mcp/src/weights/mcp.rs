@@ -1,6 +1,8 @@
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{Json, tool, tool_router};
 
+use crate::time::parse_before_millis;
+
 use super::service::{WeightService, validate_page_size};
 use super::types::{
     MCPHistoricalWeightsRequest, MCPHistoricalWeightsResponse, MCPWeightProfilesResponse,
@@ -41,9 +43,7 @@ impl McpWeightTools {
             page_size,
         }): Parameters<MCPHistoricalWeightsRequest>,
     ) -> Result<Json<MCPHistoricalWeightsResponse>, String> {
-        if before.is_some_and(|timestamp| timestamp <= 0) {
-            return Err("before must be a positive Unix timestamp in milliseconds".to_string());
-        }
+        let before = before.as_deref().map(parse_before_millis).transpose()?;
 
         let page_size = validate_page_size(page_size)?;
         self.weights
@@ -66,6 +66,53 @@ impl McpWeightTools {
 #[cfg(test)]
 mod tests {
     use super::McpWeightTools;
+    use crate::weights::types::MCPHistoricalWeightsRequest;
+    use serde_json::json;
+
+    #[test]
+    fn history_input_schema_exposes_an_optional_date_string() {
+        let tools = McpWeightTools::tool_router().list_all();
+        let tool = tools
+            .iter()
+            .find(|tool| tool.name == "get_historical_weights")
+            .unwrap();
+        let schema = serde_json::to_value(&tool.input_schema).unwrap();
+        assert_eq!(
+            schema["properties"]["before"]["type"],
+            json!(["string", "null"])
+        );
+        assert!(schema["properties"]["before"].get("format").is_none());
+        assert!(
+            !schema["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("before"))
+        );
+    }
+
+    #[test]
+    fn history_request_accepts_date_strings_and_absent_or_null_before() {
+        for before in ["2026-11-12", "2026-11-12T15:30:00+01:00"] {
+            let request: MCPHistoricalWeightsRequest = serde_json::from_value(json!({
+                "profile_id": "profile", "before": before,
+            }))
+            .unwrap();
+            assert_eq!(request.before.as_deref(), Some(before));
+        }
+        for value in [
+            json!({"profile_id": "profile"}),
+            json!({"profile_id": "profile", "before": null}),
+        ] {
+            let request: MCPHistoricalWeightsRequest = serde_json::from_value(value).unwrap();
+            assert!(request.before.is_none());
+        }
+        assert!(
+            serde_json::from_value::<MCPHistoricalWeightsRequest>(json!({
+                "profile_id": "profile", "before": 1794441600000_i64,
+            }))
+            .is_err()
+        );
+    }
 
     #[test]
     fn router_exposes_the_compatible_weight_tool_contract() {

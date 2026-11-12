@@ -111,7 +111,9 @@ Call `get_users` first and use the returned `profile_id` in the measurement tool
 | --- | --- | --- |
 | `get_users` | None | Available profiles, scale name and model, optional height and target weight, and last-update timestamp; returns `{ "profiles": [...] }`. |
 | `get_weight` | `profile_id` | The most recent measurement for a profile. |
-| `get_historical_weights` | `profile_id`, optional `before`, optional `page_size` | A page of measurements before a Unix timestamp in milliseconds, returned as `{ "weights": [...] }`. `page_size` defaults to 20 and must be from 1 to 100. |
+| `get_historical_weights` | `profile_id`, optional `before`, optional `page_size` | A page of measurements before a date, returned as `{ "weights": [...] }`. `before` accepts `YYYY-MM-DD` (midnight UTC) or RFC 3339 with a timezone, such as `2026-11-12T15:30:00+01:00`. Omit it or use `null` for the latest page. `page_size` defaults to 20 and must be from 1 to 100. |
+
+For example, use `{"profile_id":"<profile_id>","before":"2026-11-12","page_size":20}` to fetch measurements before the start of November 12, 2026 in UTC. `before` must be after the Unix epoch. Numeric Unix timestamps and timestamp strings are no longer accepted; response timestamps remain unchanged.
 
 Measurements include `weight_kg` and `measured_at_seconds`, plus optional values such as `bmi`, `body_fat_percent`, `heart_rate_bpm`, body-water percentage, muscle mass, bone mass, visceral fat, protein percentage, basal metabolic rate, metabolic age, and body score.
 

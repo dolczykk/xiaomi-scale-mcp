@@ -12,8 +12,10 @@ pub(crate) struct MCPHistoricalWeightsRequest {
     #[schemars(description = "Profile ID returned by the get_users tool")]
     pub(crate) profile_id: String,
 
-    #[schemars(description = "Unix timestamp in milliseconds to fetch measurements before")]
-    pub(crate) before: Option<i64>,
+    #[schemars(
+        description = "Fetch measurements before this date: YYYY-MM-DD (e.g. 2026-11-12, midnight UTC) or RFC 3339 with timezone (e.g. 2026-11-12T15:30:00+01:00). Must be after the Unix epoch. Omit or use null for the latest page."
+    )]
+    pub(crate) before: Option<String>,
 
     #[schemars(description = "Number of measurements to return, from 1 through 100")]
     pub(crate) page_size: Option<u32>,
