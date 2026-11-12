@@ -63,19 +63,35 @@ impl WeightService {
     pub(crate) async fn historical_weights(
         &self,
         profile_id: &str,
+        after: Option<i64>,
         before: Option<i64>,
         page_size: u32,
     ) -> anyhow::Result<Vec<MCPWeightResult>> {
+        if let (Some(after), Some(before)) = (after, before) {
+            anyhow::ensure!(after < before, "after must be earlier than before");
+        }
+
         let xiaomi = self.xiaomi_session.authenticated().await?;
-        self.weight_page(
-            &xiaomi,
-            profile_id,
-            before,
-            page_size,
-            &history_cache_key(profile_id, before, page_size),
-            true,
-        )
-        .await
+        let mut measurements = self
+            .weight_page(
+                &xiaomi,
+                profile_id,
+                before,
+                page_size,
+                &history_cache_key(profile_id, before, page_size),
+                true,
+            )
+            .await?;
+
+        if let Some(after) = after {
+            measurements.retain(|measurement| {
+                let measured_at_ms = i128::from(measurement.measured_at_seconds) * 1_000;
+                measured_at_ms >= i128::from(after)
+                    && before.is_none_or(|before| measured_at_ms < i128::from(before))
+            });
+        }
+
+        Ok(measurements)
     }
 
     async fn profile_contexts(
@@ -451,6 +467,126 @@ mod tests {
             history_cache_key("profile", Some(123_456), 20),
             "history:profile:123456:20"
         );
+    }
+
+    #[tokio::test]
+    async fn invalid_history_ranges_are_rejected_before_authentication() {
+        let session = Arc::new(XiaomiSession::new(
+            XiaomiConfig::default(),
+            Arc::new(MemoryCredentialStore::default()),
+        ));
+
+        let service = WeightService::new(CacheStore::in_memory().await.unwrap(), session);
+        for after in [2_000, 3_000] {
+            let error = service
+                .historical_weights("profile-1", Some(after), Some(2_000), 20)
+                .await
+                .unwrap_err();
+            assert_eq!(error.to_string(), "after must be earlier than before");
+        }
+    }
+
+    #[tokio::test]
+    async fn history_filters_fresh_and_stale_cached_pages_without_changing_cached_data() {
+        for stale in [false, true] {
+            let session = Arc::new(XiaomiSession::new(
+                XiaomiConfig::default(),
+                Arc::new(MemoryCredentialStore::default()),
+            ));
+
+            session.store_token("user-1:pass-token").await.unwrap();
+            let cache = CacheStore::in_memory().await.unwrap();
+            let now = current_unix_millis().unwrap();
+            // A fresh empty profile list makes stale-page refresh fail locally,
+            // exercising fallback without contacting Xiaomi.
+
+            cache
+                .save_profiles(
+                    "user-1",
+                    &Vec::<crate::weights::types::ProfileContext>::new(),
+                    now,
+                )
+                .await
+                .unwrap();
+
+            let mut measurements = Vec::new();
+            for seconds in [4, 3, 2, 1] {
+                let mut value = measurement();
+                value.measured_at_seconds = seconds;
+                measurements.push(value);
+            }
+
+            let key = history_cache_key("profile-1", Some(4_000), 20);
+            cache
+                .save_weights(
+                    "user-1",
+                    &key,
+                    "profile-1",
+                    &measurements,
+                    if stale {
+                        now - super::CACHE_TTL_MS - 1
+                    } else {
+                        now
+                    },
+                )
+                .await
+                .unwrap();
+
+            let latest_key = history_cache_key("profile-1", None, 20);
+            cache
+                .save_weights("user-1", &latest_key, "profile-1", &measurements, now)
+                .await
+                .unwrap();
+            cache
+                .save_weights(
+                    "user-1",
+                    &history_cache_key("profile-1", Some(4_001), 20),
+                    "profile-1",
+                    &measurements,
+                    now,
+                )
+                .await
+                .unwrap();
+
+            let service = WeightService::new(cache.clone(), Arc::clone(&session));
+            for (after, before, expected) in [
+                (Some(2_000), Some(4_000), vec![3, 2]),
+                (Some(2_001), Some(4_000), vec![3]),
+                (Some(3_999), Some(4_000), vec![]),
+                (Some(3_999), Some(4_001), vec![4]),
+                (Some(2_000), None, vec![4, 3, 2]),
+                (None, Some(4_000), vec![4, 3, 2, 1]),
+                (None, None, vec![4, 3, 2, 1]),
+            ] {
+                let actual = service
+                    .historical_weights("profile-1", after, before, 20)
+                    .await
+                    .unwrap();
+
+                assert_eq!(
+                    actual
+                        .iter()
+                        .map(|value| value.measured_at_seconds)
+                        .collect::<Vec<_>>(),
+                    expected
+                );
+            }
+
+            let cached = cache
+                .load_weights::<Vec<MCPWeightResult>>("user-1", &key)
+                .await
+                .unwrap()
+                .unwrap();
+
+            assert_eq!(cached.value, measurements);
+            assert!(
+                !session
+                    .authenticated()
+                    .await
+                    .unwrap()
+                    .client_is_initialized()
+            );
+        }
     }
 
     #[tokio::test]
